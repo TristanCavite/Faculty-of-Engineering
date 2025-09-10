@@ -1,0 +1,5 @@
+.tiptap-render { line-height: 1.65; }
+.tiptap-render p { margin: 0.35rem 0; }
+.tiptap-render p:empty { display: none; }
+.tiptap-render ul, .tiptap-render ol { margin: 0.4rem 0; }
+.tiptap-render h1, .tiptap-render h2, .tiptap-render h3 { margin: 1rem 0 0.5rem; }

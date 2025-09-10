@@ -1,0 +1,51 @@
+/* =========================================================
+   CET TipTap typography
+   - Desktop/tablet: fluid fs-* sizes via clamp()
+   - Mobile (<=640px): hard caps for fs-* + smaller headings/paragraphs
+   - Scoped to .cet-content so the admin/editor isn’t affected
+   ========================================================= */
+
+/* ---------- Fluid class-based sizes (desktop/tablet defaults) ---------- */
+.cet-content .fs-12 { font-size: clamp(12px, 2.8vw, 12px); }
+.cet-content .fs-14 { font-size: clamp(13px, 3.2vw, 14px); }
+.cet-content .fs-16 { font-size: clamp(14px, 3.6vw, 16px); }
+.cet-content .fs-18 { font-size: clamp(15px, 4.0vw, 18px); } /* slightly down at small end */
+.cet-content .fs-24 { font-size: clamp(17px, 5.2vw, 24px); }
+.cet-content .fs-32 { font-size: clamp(21px, 7.0vw, 32px); }
+.cet-content .fs-48 { font-size: clamp(26px, 10vw, 48px); }
+
+/* ---------- Optional: nicer paragraph rhythm on all screens ---------- */
+.cet-content p { line-height: 1.6; }
+
+/* ---------- Mobile overrides (<= 640px) ---------- */
+@media (max-width: 640px) {
+  /* A) If content uses our fs-* classes, cap them smaller on phones */
+  .cet-content .fs-48 { font-size: 20px !important; }
+  .cet-content .fs-32 { font-size: 18px !important; }
+  .cet-content .fs-24 { font-size: 16px !important; }
+  .cet-content .fs-18 { font-size: 14px !important; }
+  .cet-content .fs-16 { font-size: 13px !important; }
+  .cet-content .fs-14 { font-size: 12.5px !important; }
+  .cet-content .fs-12 { font-size: 12px !important; }
+
+  /* B) If content still has legacy inline styles, shrink those too */
+  .cet-content [style*="font-size: 48px"] { font-size: 20px !important; }
+  .cet-content [style*="font-size: 32px"] { font-size: 18px !important; }
+  .cet-content [style*="font-size: 24px"] { font-size: 16px !important; }
+  .cet-content [style*="font-size: 18px"] { font-size: 14px !important; }
+  .cet-content [style*="font-size: 16px"] { font-size: 13px !important; }
+  .cet-content [style*="font-size: 14px"] { font-size: 12.5px !important; }
+  .cet-content [style*="font-size: 12px"] { font-size: 12px !important; }
+
+  /* C) TipTap headings (and Tailwind Typography .prose headings) */
+  .cet-content h1,
+  .cet-content .prose :where(h1) { font-size: 22px !important; line-height: 1.25 !important; }
+  .cet-content h2,
+  .cet-content .prose :where(h2) { font-size: 18px !important; line-height: 1.3 !important; }
+  .cet-content h3,
+  .cet-content .prose :where(h3) { font-size: 16px !important; line-height: 1.35 !important; }
+
+  /* D) Default paragraph size when no fs-* is present */
+  .cet-content p,
+  .cet-content .prose :where(p) { font-size: 13px !important; line-height: 1.6 !important; }
+}
