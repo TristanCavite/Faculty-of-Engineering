@@ -1,216 +1,255 @@
+<!-- components/CreateAccountModal.vue -->
 <template>
-    <main class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div class="w-full max-w-2xl p-8 text-black bg-white rounded-lg shadow-lg">
-            <h2 class="mb-4 text-xl font-semibold text-center ">Create Account</h2>
-            <form @submit.prevent="submitForm">
-                <!-- Full Name -->
-                <div class="mb-4">
-                <label for="full_name" class="block text-sm font-medium">Full Name</label>
-                <input
-                    v-model="form.fullName"
-                    type="text"
-                    id="full_name"
-                    class="w-full px-3 py-2 mt-1 border border-gray-300 rounded"
-                    placeholder="Full Name"
-                />
-                <p v-if="errors.fullName" class="mt-1 text-xs text-black">{{ errors.fullName }}</p>
-                </div>
+  <main class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="w-full max-w-2xl rounded-lg bg-white p-8 text-black shadow-lg">
+      <h2 class="mb-4 text-center text-xl font-semibold">Create Account</h2>
 
-                <!-- Email -->
-                <div class="mb-4">
-                <label for="email" class="block text-sm font-medium">Email</label>
-                <input
-                    v-model="form.email"
-                    type="email"
-                    id="email"
-                    class="w-full px-3 py-2 mt-1 border border-gray-300 rounded"
-                    placeholder="Email"
-                />
-                <p v-if="errors.email" class="mt-1 text-xs text-black">{{ errors.email }}</p>
-                </div>
-
-                <!-- Title -->
-                <div class="mb-4">
-                <label for="title" class="block text-sm font-medium">Title</label>
-                <select
-                    v-model="form.title"
-                    id="title"
-                    @change="handleTitleChange"
-                    class="w-full px-3 py-2 mt-1 text-black border border-gray-300 rounded"
-                >
-                    <option value="Faculty Member">Faculty Member</option>
-                    <option value="Chair/Head of Department">Chair/Head of Department</option>
-                </select>
-                <p v-if="errors.title" class="mt-1 text-xs ">{{ errors.title }}</p>
-                </div>
-
-                <!-- Department (Only if user is Head of Department) -->
-                <div v-if="isHeadDepartment" class="mb-4">
-                <label for="department" class="block text-sm font-medium">Department</label>
-                <select
-                    v-model="form.departmentId"
-                    id="department"
-                    class="w-full px-3 py-2 mt-1 border border-gray-300 rounded"
-                >
-                    <option value="">Select Department</option>
-                    <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                    {{ dept.name }}
-                    </option>
-                </select>
-                <p v-if="errors.departmentId" class="mt-1 text-xs text-black">{{ errors.departmentId }}</p>
-                </div>
-
-                <!-- Password -->
-                <div class="mb-4">
-                <label for="password" class="block text-sm font-medium">Password</label>
-                <input
-                    v-model="form.password"
-                    type="password"
-                    id="password"
-                    class="w-full px-3 py-2 mt-1 border border-gray-300 rounded"
-                    placeholder="Password"
-                />
-                <p v-if="errors.password" class="mt-1 text-xs text-black">{{ errors.password }}</p>
-                </div>
-
-                <!-- Confirm Password -->
-                <div class="mb-4">
-                <label for="confirm_password" class="block text-sm font-medium">Confirm Password</label>
-                <input
-                    v-model="form.confirmPassword"
-                    type="password"
-                    id="confirm_password"
-                    class="w-full px-3 py-2 mt-1 border border-gray-300 rounded"
-                    placeholder="Confirm Password"
-                />
-                <p v-if="errors.confirmPassword" class="mt-1 text-xs text-black">{{ errors.confirmPassword }}</p>
-                </div>
-
-                <UiButton
-                    type="submit"
-                    class="w-full py-2 text-white transition bg-red-900 rounded hover:bg-red-800 "
-                    @click="submitForm, $emit('close')"
-                    >
-                    Create Account
-                </UiButton>
-                <UiButton
-                    @click="$emit('close')"
-                    class="w-full py-2 mt-4 text-white transition bg-gray-900 rounded hover:bg-gray-800"
-                >
-                    Cancel
-                </UiButton>
-            </form>
+      <form @submit.prevent="onSubmit" class="space-y-4" novalidate>
+        <!-- Full Name -->
+        <div>
+          <label for="full_name" class="block text-sm font-medium">Full Name</label>
+          <input
+            id="full_name"
+            v-model.trim="form.fullName"
+            type="text"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            placeholder="Full Name"
+            required
+          />
+          <p v-if="errors.fullName" class="mt-1 text-xs text-red-600">{{ errors.fullName }}</p>
         </div>
-    </main>
+
+        <!-- Email -->
+        <div>
+          <label for="email" class="block text-sm font-medium">Email</label>
+          <input
+            id="email"
+            v-model.trim="form.email"
+            type="email"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            placeholder="Email"
+            required
+          />
+          <p v-if="errors.email" class="mt-1 text-xs text-red-600">{{ errors.email }}</p>
+        </div>
+
+        <!-- Title -->
+        <div>
+          <label for="title" class="block text-sm font-medium">Title</label>
+          <select
+            id="title"
+            v-model="form.title"
+            @change="handleTitleChange"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+          >
+            <option value="Faculty Member">Faculty Member</option>
+            <option value="Chair/Head of Department">Chair/Head of Department</option>
+          </select>
+          <p v-if="errors.title" class="mt-1 text-xs text-red-600">{{ errors.title }}</p>
+        </div>
+
+        <!-- Department (only for Head of Department) -->
+        <div v-if="isHeadDepartment">
+          <label for="department" class="block text-sm font-medium">Department</label>
+          <select
+            id="department"
+            v-model="form.departmentId"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+          >
+            <option value="">Select Department</option>
+            <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+              {{ dept.name }}
+            </option>
+          </select>
+          <p v-if="errors.departmentId" class="mt-1 text-xs text-red-600">{{ errors.departmentId }}</p>
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label for="password" class="block text-sm font-medium">Password</label>
+          <input
+            id="password"
+            v-model="form.password"
+            type="password"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            placeholder="Password (min 6 chars)"
+            required
+          />
+          <p v-if="errors.password" class="mt-1 text-xs text-red-600">{{ errors.password }}</p>
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label for="confirm_password" class="block text-sm font-medium">Confirm Password</label>
+          <input
+            id="confirm_password"
+            v-model="form.confirmPassword"
+            type="password"
+            class="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            placeholder="Confirm Password"
+            required
+          />
+          <p v-if="errors.confirmPassword" class="mt-1 text-xs text-red-600">{{ errors.confirmPassword }}</p>
+        </div>
+
+        <!-- Errors from server -->
+        <p v-if="serverError" class="text-sm text-red-600">{{ serverError }}</p>
+
+        <!-- Actions -->
+        <div class="mt-6 flex gap-3">
+          <UiButton
+            type="button"
+            class="w-1/2 rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-800"
+            :disabled="submitting"
+            @click="emit('close')"
+          >
+            Cancel
+          </UiButton>
+
+          <!-- NOTE: no @click here; submit is handled by the form -->
+          <UiButton
+            type="submit"
+            class="w-1/2 rounded bg-red-900 px-4 py-2 text-white hover:bg-red-800 disabled:opacity-50"
+            :disabled="submitting"
+          >
+            <span v-if="submitting">Creating…</span>
+            <span v-else>Create Account</span>
+          </UiButton>
+        </div>
+      </form>
+    </div>
+  </main>
 </template>
 
-<script setup>
-import { ref, onMounted } from "vue";
-import {
-  createUserWithEmailAndPassword,
-  getAuth,
-} from "firebase/auth";
-import {
-  doc,
-  getFirestore,
-  setDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  collection,
-} from "firebase/firestore";
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useFirebaseApp, useFirestore } from 'vuefire'
+import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { getApps, initializeApp, deleteApp, type FirebaseApp } from 'firebase/app'
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
 
-definePageMeta({
-  layout: "super-admin",
-  middleware: "auth",
-});
+const emit = defineEmits<{ (e: 'close'): void }>()
 
+// DO NOT use definePageMeta() inside a modal/component (warning you saw)
 
-const db = getFirestore();
-const departments = ref([]);
+const db = useFirestore()
+const vuefireApp = useFirebaseApp()
+
+const departments = ref<{ id: string; name: string }[]>([])
+const isHeadDepartment = ref(false)
+const submitting = ref(false)
+const serverError = ref('')
+
 const form = ref({
-  fullName: "",
-  email: "",
-  title: "Faculty Member",
-  departmentId: "",
-  password: "",
-  confirmPassword: "",
-  photo: "",
-});
-const errors = ref({});
-const isHeadDepartment = ref(false);
+  fullName: '',
+  email: '',
+  title: 'Faculty Member',
+  departmentId: '',
+  password: '',
+  confirmPassword: '',
+  photo: '',
+})
 
-// Fetch departments from Firestore
-const fetchDepartments = async () => {
-  const departmentsCollection = collection(db, "departments");
-  const snapshot = await getDocs(departmentsCollection);
-  departments.value = snapshot.docs.map((doc) => ({
-    id: doc.id,
-    name: doc.data().name,
-  }));
-};
+const errors = ref<Record<string, string>>({})
 
-// Handle dropdown change
-const handleTitleChange = () => {
-  isHeadDepartment.value = form.value.title === "Chair/Head of Department";
-};
+// Load departments
+onMounted(async () => {
+  const snap = await getDocs(collection(db, 'departments'))
+  departments.value = snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name }))
+})
 
-// Form submit logic
-const submitForm = async () => {
+function handleTitleChange() {
+  isHeadDepartment.value = form.value.title === 'Chair/Head of Department'
+}
+
+function validate(): boolean {
+  errors.value = {}
+  if (!form.value.fullName.trim()) errors.value.fullName = 'Full name is required.'
+  if (!form.value.email.trim()) errors.value.email = 'Email is required.'
+  if (isHeadDepartment.value && !form.value.departmentId) errors.value.departmentId = 'Pick a department.'
+  if (!form.value.password || form.value.password.length < 6) errors.value.password = 'Min 6 characters.'
+  if (form.value.password !== form.value.confirmPassword) errors.value.confirmPassword = 'Passwords do not match.'
+  return Object.keys(errors.value).length === 0
+}
+
+/**
+ * Use a SECONDARY Firebase app so creating an Auth user does NOT replace
+ * the currently signed-in Super Admin in the main app.
+ */
+async function getSecondaryAuth() {
+  const name = 'secondary-admin'
+  let secondary: FirebaseApp
+  const existing = getApps().find(a => a.name === name)
+  if (existing) secondary = existing
+  else secondary = initializeApp(vuefireApp.options, name)
+  const auth = getAuth(secondary)
+  return {
+    auth,
+    async cleanup() {
+      try { await deleteApp(secondary) } catch {}
+    }
+  }
+}
+
+async function onSubmit() {
+  serverError.value = ''
+  if (submitting.value) return
+  if (!validate()) return
+
+  submitting.value = true
   try {
-    // Validate head admin uniqueness
+    // Ensure department has no existing head
     if (isHeadDepartment.value && form.value.departmentId) {
-      const departmentRef = doc(db, "departments", form.value.departmentId);
-      const departmentSnap = await getDoc(departmentRef);
-
-      if (departmentSnap.exists()) {
-        const data = departmentSnap.data();
-        if (data.headAdmin && data.headAdmin.id) {
-          alert("This department already has a Head Admin assigned.");
-          return;
-        }
+      const depRef = doc(db, 'departments', form.value.departmentId)
+      const depSnap = await getDoc(depRef)
+      const data = depSnap.exists() ? (depSnap.data() as any) : null
+      if (data?.headAdmin?.id) {
+        throw new Error('This department already has a Head Admin.')
       }
     }
 
-    // Create user in Firebase Auth
-    const auth = getAuth();
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      form.value.email,
-      form.value.password
-    );
-    const user = userCredential.user;
+    // Create Auth user on a secondary app to avoid switching current session
+    const { auth, cleanup } = await getSecondaryAuth()
+    const cred = await createUserWithEmailAndPassword(auth, form.value.email, form.value.password)
 
-    // Save to users collection
-    await setDoc(doc(db, "users", user.uid), {
-      fullName: form.value.fullName,
-      email: form.value.email,
-      role: isHeadDepartment.value ? "Head Admin" : "Faculty",
+    // Create Firestore user document (store canonical role keys to match your filters)
+    const role = isHeadDepartment.value ? 'head_admin' : 'faculty'
+    await addDoc(collection(db, 'users'), {
+      uid: cred.user.uid,
+      fullName: form.value.fullName.trim(),
+      email: form.value.email.trim(),
+      role,
       departmentId: isHeadDepartment.value ? form.value.departmentId : null,
-      status: "active",
-      photo: form.value.photo || "",
-    });
+      status: 'active',
+      photo: form.value.photo || '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
 
-    // Update department document if Head Admin
-    if (isHeadDepartment.value) {
-      const departmentRef = doc(db, "departments", form.value.departmentId);
-      await updateDoc(departmentRef, {
+    // If head admin, stamp department doc
+    if (isHeadDepartment.value && form.value.departmentId) {
+      await updateDoc(doc(db, 'departments', form.value.departmentId), {
         headAdmin: {
-          id: user.uid,
-          name: form.value.fullName,
-          email: form.value.email,
-          designation: "Head Admin",
-          photo: form.value.photo || "",
-          status: "active",
+          id: cred.user.uid,
+          name: form.value.fullName.trim(),
+          email: form.value.email.trim(),
+          designation: 'Head Admin',
+          photo: form.value.photo || '',
+          status: 'active',
         },
-      });
+        updatedAt: serverTimestamp(),
+      })
     }
 
-    alert("Account created successfully!");
-  } catch (err) {
-    console.error("Error:", err.message);
-    alert("Error: " + err.message);
+    await cleanup()
+
+    // Close only AFTER all async work finished to keep the form connected
+    emit('close')
+
+  } catch (e: any) {
+    serverError.value = e?.message || 'Failed to create account.'
+  } finally {
+    submitting.value = false
   }
-};
-onMounted(fetchDepartments);
+}
 </script>
