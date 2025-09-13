@@ -12,7 +12,8 @@ export default defineNuxtConfig({
     "@nuxt/fonts",
     "@samk-dev/nuxt-vcalendar",
     "@vee-validate/nuxt",
-    "@morev/vue-transitions/nuxt"
+    "@morev/vue-transitions/nuxt",
+    "@yuta-inoue-ph/nuxt-vcalendar"
   ],
 
   tailwindcss: {
