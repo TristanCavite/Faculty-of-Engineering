@@ -25,16 +25,7 @@
           </li>
           <li>
             <NuxtLink
-              to="#"
-              class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105"
-              exact-active-class="text-black bg-yellow-400"
-            >
-              Create Account
-            </NuxtLink>
-          </li>
-          <li>
-            <NuxtLink
-              to="#"
+              to="/admin/super-admin/manage_department"
               class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105"
               exact-active-class="text-black bg-yellow-400"
             >
@@ -43,7 +34,7 @@
           </li>
           <li>
             <NuxtLink
-              to="#"
+              to="/admin/super-admin/faculty_staff"
               class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105"
               exact-active-class="text-black bg-yellow-400"
             >
@@ -58,14 +49,15 @@
                 <IconsChevronDown class="transition-transform size-5 stroke-[3] " :class="{ 'rotate-180': showManageSubmenu }"/>
             </div>
             <ul  v-if="showManageSubmenu" class="">
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage About</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Accounts</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Downloads</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Events</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Gallery</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage News</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Research</NuxtLink></li>
-              <li><NuxtLink to="#" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Socials</NuxtLink></li>
+               <li><NuxtLink to="/admin/super-admin/manage_obe" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage OBE</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/manage_about" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage About</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/manage_accounts" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Accounts</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/downloads" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Downloads</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/events" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Events</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/manage_gallery" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Gallery</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/news" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage News</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/research" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400"> Manage Research</NuxtLink></li>
+              <li><NuxtLink to="/admin/super-admin/socials" class="block px-3 py-2 transition duration-300 rounded hover:bg-yellow-400 hover:scale-105" exact-active-class="text-black bg-yellow-400">Manage Socials</NuxtLink></li>
             </ul>
           </li>
           <li>
