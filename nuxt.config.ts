@@ -10,7 +10,6 @@ export default defineNuxtConfig({
     "@vueuse/nuxt",
     "@nuxt/icon",
     "@nuxt/fonts",
-    "@samk-dev/nuxt-vcalendar",
     "@vee-validate/nuxt",
     "@morev/vue-transitions/nuxt",
     "@yuta-inoue-ph/nuxt-vcalendar"
