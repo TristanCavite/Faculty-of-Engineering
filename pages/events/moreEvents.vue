@@ -11,8 +11,8 @@
             total
           </p>
         </div>
-        <UiButton class="text-xs font-semibold text-gray-800 transition bg-green-500 rounded font-montserrat hover:scale-105 hover:bg-green-600" @click="goBack">
-          <MoveLeft class="size-4" />
+        <UiButton class="text-xs font-semibold text-red-900 transition bg-white border border-red-900 rounded-xl font-montserrat hover:scale-105 hover:bg-red-900 hover:text-white" @click="goBack">
+          <MoveLeft class="text-red-900 size-4 group-hover:text-white" />
           Back to Home
         </UiButton>
       </div>
