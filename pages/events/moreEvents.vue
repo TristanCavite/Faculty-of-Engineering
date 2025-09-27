@@ -1,24 +1,23 @@
 <template>
   <main class="p-6 space-y-6">
     <div class="max-w-5xl mx-auto ">
-      <div class="flex flex-row items-center justify-between mb-6">
-        <div>
-          <span class="text-3xl font-bold text-maroon">All Events</span>
-          <p class="mt-1 text-sm text-gray-600">
+      <div class="flex flex-col items-start mb-6">
+        <div >
+          <div class="flex flex-row items-center ml-6 space-x-3">
+            <ArrowLeft class="text-red-900 cursor-pointer size-8 hover:scale-125" />
+            <span class="text-3xl font-bold text-maroon">All Events</span>
+          </div>
+          <p class="mt-1 ml-6 text-sm text-gray-600">
             Browse all events —
             <span v-if="!isLoading">{{ events.length }}</span>
             <span v-else class="text-gray-400">loading…</span>
             total
           </p>
         </div>
-        <UiButton class="text-xs font-semibold text-red-900 transition bg-white border border-red-900 rounded-xl font-montserrat hover:scale-105 hover:bg-red-900 hover:text-white" @click="goBack">
-          <MoveLeft class="text-red-900 size-4 group-hover:text-white" />
-          Back to Home
-        </UiButton>
       </div>
 
       <!-- Filters: Event type chip (reusable) + Year select -->
-      <div class="flex items-center gap-4 mb-6">
+      <div class="flex items-center gap-4 mb-6 ml-6">
         <EventFilter v-model="typeFilter" />
         <YearFilter v-model="yearFilter" :years="yearOptions" />
       </div>
@@ -122,7 +121,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useFirestore } from "vuefire";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useRouter } from "vue-router";
-import { Frown, MoveLeft } from "lucide-vue-next";
+import { Frown, ArrowLeft } from "lucide-vue-next";
 import { NuxtLink } from "#components";
 
 const PAGE_SIZE = 5;
