@@ -223,10 +223,3 @@
     }
   };
 </script>
-
-<style scoped>
-  /* Debug outlines (remove when done) */
-  * {
-    outline: 1px solid red;
-  }
-</style>
