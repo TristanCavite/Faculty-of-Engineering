@@ -32,11 +32,19 @@
         />
       </div>
 
-      <!-- Date Picker -->
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">Date</label>
-        <input v-model="form.date" type="date" required class="input input-bordered w-full" />
-      </div>
+      <!-- Date Picker (Start) -->
+<div>
+  <label class="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
+  <input v-model="form.date" type="date" required class="input input-bordered w-full" />
+</div>
+
+<!-- Date Picker (End) -->
+<div>
+  <label class="mb-1 block text-sm font-medium text-gray-700">End Date</label>
+  <input v-model="form.dateEnd" type="date" class="input input-bordered w-full" />
+  <p class="mt-1 text-xs text-gray-500">Leave blank if the event is only one day.</p>
+</div>
+
 
 
       <!-- Event Type / Audience -->
@@ -132,7 +140,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useFirestore, useStorage } from "vuefire";
 
-definePageMeta({ layout: "super-admin" });
+definePageMeta({ layout: "super-admin", middleware: "auth"});
 
 const db = useFirestore();
 const storage = useStorage();
@@ -142,23 +150,26 @@ const route = useRoute();
 const isEditMode = computed(() => !!route.query.id);
 
 const EVENT_TYPES = [
-  { value: 'faculty',      label: 'Faculty' },
-  { value: 'students',     label: 'Students' },
-  { value: 'faculty-wide', label: 'Faculty Wide' },
-] as const
+  { value: "university", label: "University" }, // previously 'faculty-wide'
+  { value: "faculty", label: "Faculty" },
+  { value: "students", label: "Students" },
+  { value: "department", label: "Department" }, // new
+  { value: "general", label: "General" },       // new
+] as const;
 
-type EventType = '' | 'faculty' | 'students' | 'faculty-wide'
-
+type EventType = "" | "university" | "faculty" | "students" | "department" | "general";
 
 
 const form = ref({
   title: "",
   date: "",
+  dateEnd: "",   // ✅ new field
   description: "",
   content: "",
   coverImages: [] as string[],
   eventType: '' as EventType,
 });
+
 
 const imageFiles = ref<File[]>([]);
 const previewUrls = ref<string[]>([]);
@@ -184,6 +195,7 @@ onMounted(async () => {
       form.value = {
         title: (data as any).title || "",
         date: (data as any).date || "",
+        dateEnd: (data as any).dateEnd || "",
         description: (data as any).description || "",
         content: (data as any).content || "",
         coverImages: (data as any).coverImages || [],
