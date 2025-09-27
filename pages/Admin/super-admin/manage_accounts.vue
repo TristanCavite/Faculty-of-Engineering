@@ -125,7 +125,8 @@
   import { computed, onMounted, ref } from "vue";
 
   definePageMeta({
-    middleware: "auth",
+     middleware: ['auth'],
+     roles: ['super_admin'],
     layout: "super-admin",
   });
 
