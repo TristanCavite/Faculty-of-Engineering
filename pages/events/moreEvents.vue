@@ -1,10 +1,9 @@
 <template>
-  <main class="max-w-4xl p-6 mx-auto space-y-6">
-     
-    <div class="max-w-6xl px-4 mx-auto">
+  <main class="p-6 space-y-6">
+    <div class="max-w-5xl mx-auto ">
       <div class="flex flex-row items-center justify-between mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-maroon">All Events</h1>
+          <span class="text-3xl font-bold text-maroon">All Events</span>
           <p class="mt-1 text-sm text-gray-600">
             Browse all events —
             <span v-if="!isLoading">{{ events.length }}</span>
@@ -12,8 +11,8 @@
             total
           </p>
         </div>
-        <UiButton class="flex flex-row py-1 text-sm font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300" @click="goBack">
-          <MoveLeft class="size-5" />
+        <UiButton class="text-xs font-semibold text-gray-800 transition bg-green-500 rounded font-montserrat hover:scale-105 hover:bg-green-600" @click="goBack">
+          <MoveLeft class="size-4" />
           Back to Home
         </UiButton>
       </div>
@@ -32,7 +31,7 @@
         <div v-if="listByFilters.length === 0" class="mt-8">
           <div class="max-w-xl p-8 mx-auto text-center bg-white border rounded-lg shadow border-neutral-200">
             <Frown class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <h2 class="text-xl font-semibold text-gray-800">Oops — No events found</h2>
+            <span class="text-xl font-semibold text-gray-800">Oops — No events found</span>
             <p class="mt-2 text-sm text-gray-600">
               <span v-if="typeFilter !== 'all' || yearFilter !== 'all'">
                 There are no events matching
@@ -45,102 +44,71 @@
               </span>
             </p>
             <div class="flex items-center justify-center gap-3 mt-4">
-              <button
-                @click="clearFilters"
-                class="px-3 py-1 text-sm border rounded text-maroon hover:bg-gray-100"
-                type="button"
-              >
+              <UiButton @click="clearFilters" class="px-3 py-1 text-sm bg-gray-200 border rounded text-maroon hover:bg-gray-100">
                 Show all events
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
 
-        <div v-else class="space-y-4">
-          <article
-            v-for="ev in paginatedEvents"
-            :key="ev.id"
-            class="p-4 bg-white border rounded-lg shadow-sm"
-          >
-            <div class="flex items-start justify-between gap-4">
+        <UiContainer v-else class="space-y-4 ">
+          <article v-for="ev in paginatedEvents" :key="ev.id" class="p-5 space-y-3 bg-white border rounded-lg shadow-sm">
+            <div class="flex justify-between">
               <div class="text-xs font-semibold tracking-wide uppercase text-maroon">
                 {{ labelForType(ev.eventType) }}
               </div>
               <div class="text-xs italic text-gray-500">
-                {{ formatPublishDate(ev.createdAt ?? ev.date) }}
+                {{ formatPublishDate(ev.createdAt ?? ev.date) }}  
               </div>
             </div>
 
-            <h2 class="mt-2 text-lg font-bold text-gray-900 hover:text-maroon">
-              <button @click="openEvent(ev.id)" class="text-left" type="button">
+            <span class="text-lg font-bold text-gray-900 hover:text-maroon">
+              <NuxtLink to="`/events/${ev.id}`" class="text-left">
                 {{ ev.title }}
-              </button>
-            </h2>
+              </NuxtLink>
+            </span>
 
-            <div class="mt-2 text-sm text-gray-700">
+            <div class="text-sm text-gray-700">
               <span class="font-semibold">Event Date:</span>
               {{ formatEventDate(ev.date, ev.dateEnd) }}
             </div>
 
-            <div class="mt-2 text-sm text-gray-700">
-              <span class="font-semibold">Type:</span> {{ labelForType(ev.eventType) }}
+            <div v-if="ev.description" class="text-sm text-gray-600">
+              <p v-html="truncateHtml(ev.description, 220)"></p>
             </div>
-
-            <div v-if="ev.description" class="mt-3 text-sm text-gray-600">
-              <div v-html="truncateHtml(ev.description, 220)"></div>
-            </div>
-
-            <div class="mt-3">
-              <button
-                @click="openEvent(ev.id)"
-                class="text-sm font-semibold text-gray-700 hover:text-maroon"
-                type="button"
-              >
+            
+            <div>
+              <NuxtLink to="`/events/${ev.id}`" class="text-sm font-semibold text-gray-700 hover:text-maroon">
                 Read more →
-              </button>
+              </NuxtLink>
             </div>
+  
           </article>
-        </div>
+        </UiContainer>
 
-        <div v-if="listByFilters.length > 0" class="flex items-center justify-center gap-4 mt-8">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="text-sm text-maroon disabled:opacity-30"
-            type="button"
-          >
-            Prev
-          </button>
-
-          <div class="flex items-center gap-2">
-            <button
-              v-for="p in pageRange"
-              :key="p"
-              @click="goToPage(p)"
-              :class="[ 'px-3 py-1 rounded border text-sm', p === currentPage ? 'bg-gray-100' : 'bg-white' ]"
-              type="button"
-            >
-              {{ p }}
-            </button>
-          </div>
-
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="text-sm text-maroon disabled:opacity-30"
-            type="button"
-          >
-            Next
-          </button>
-
-          <button
-            @click="goToPage(totalPages)"
-            :disabled="currentPage === totalPages"
-            class="text-sm text-maroon disabled:opacity-30"
-            type="button"
-          >
-            End
-          </button>
+        <div v-if="listByFilters.length > 0" class="flex flex-col items-center gap-10 mt-5">
+          <UiPagination v-model:page="currentPage" :total="listByFilters.length" :items-per-page="PAGE_SIZE" :sibling-count="1" class="mx-auto">
+            <UiPaginationList v-slot="{ items }" class="gap-0 border rounded-lg">
+              <UiPaginationPrev class="h-full rounded-e-none" as-child icon="lucide:chevron-left" />
+              <template v-for="(page, index) in items" :key="index">
+                <UiPaginationItem v-if="page.type === 'page'" as-child v-bind="page">
+                  <UiButton
+                    class="size-9 rounded-none border-0 shadow-none data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground dark:bg-transparent dark:data-[selected=true]:bg-primary dark:data-[selected=true]:text-primary-foreground"
+                    variant="outline"
+                    size="icon-sm">
+                    {{ page.value }}
+                  </UiButton>
+                </UiPaginationItem>
+                <UiPaginationEllipsis
+                  v-else-if="page.type === 'ellipsis'"
+                  as-child
+                  v-bind="page"
+                  icon="lucide:ellipsis"
+                />
+              </template>
+              <UiPaginationNext class="h-full rounded-s-none" as-child icon="lucide:chevron-right" />
+            </UiPaginationList>
+          </UiPagination>
         </div>
       </div>
     </div>
@@ -155,9 +123,11 @@ import { useFirestore } from "vuefire";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { useRouter } from "vue-router";
 import { Frown, MoveLeft } from "lucide-vue-next";
+import { NuxtLink } from "#components";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 const currentPage = ref(1);
+
 const events = ref<any[]>([]);
 const db = useFirestore();
 const router = useRouter();
@@ -302,9 +272,14 @@ const pageRange = computed(() => {
   for (let i = start; i <= end; i++) out.push(i);
   return out;
 });
+
+
 </script>
 
 
 <style scoped>
 button[disabled] { cursor: default; }
+/* *{
+  outline: 1px solid red;
+} */
 </style>
