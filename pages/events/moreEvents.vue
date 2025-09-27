@@ -4,7 +4,9 @@
       <div class="flex flex-col items-start mb-6">
         <div >
           <div class="flex flex-row items-center ml-6 space-x-3">
-            <ArrowLeft class="text-red-900 cursor-pointer size-8 hover:scale-125" />
+            <NuxtLink to="/">
+              <ArrowLeft class="text-red-900 cursor-pointer size-8 hover:scale-125" />
+            </NuxtLink>
             <span class="text-3xl font-bold text-maroon">All Events</span>
           </div>
           <p class="mt-1 ml-6 text-sm text-gray-600">
