@@ -92,8 +92,8 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 const route = useRoute()

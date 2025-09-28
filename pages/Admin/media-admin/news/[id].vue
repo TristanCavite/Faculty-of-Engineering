@@ -61,10 +61,9 @@
 <script setup lang="ts">
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
-
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'

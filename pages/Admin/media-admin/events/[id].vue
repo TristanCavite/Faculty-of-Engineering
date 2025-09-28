@@ -10,10 +10,10 @@
         <template #icon>
           <ArrowLeft class="w-4 h-4" />
         </template>
-        Back to Research
+        Back to Events
       </UiButton>
 
-      <UiButton class="bg-maroon text-white hover:opacity-90" @click="editResearch">
+      <UiButton class="bg-maroon text-white hover:opacity-90" @click="editEvent">
         <template #icon>
           <Pen class="w-4 h-4" />
         </template>
@@ -21,25 +21,13 @@
       </UiButton>
     </div>
 
-    <!-- Research Content -->
-    <div v-if="research">
+    <!-- Event Content -->
+    <div v-if="event">
       <!-- Title -->
-      <h1 class="text-3xl font-bold text-maroon mb-2">{{ research.title }}</h1>
+      <h1 class="text-3xl font-bold text-maroon mb-2">{{ event.title }}</h1>
 
-      <!-- Meta (Date • Department • Researchers) -->
-      <div class="text-sm text-gray-600 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span>{{ formatDate(research.date) }}</span>
-
-        <template v-if="deptName">
-          <span class="text-gray-400">•</span>
-          <span><span class="font-medium text-gray-700">Department:</span> {{ deptName }}</span>
-        </template>
-
-        <template v-if="research.researchers">
-          <span class="text-gray-400">•</span>
-          <span><span class="font-medium text-gray-700">Researchers:</span> {{ research.researchers }}</span>
-        </template>
-      </div>
+      <!-- Date -->
+      <p class="text-sm text-gray-600 mb-6">{{ formatDate(event.date) }}</p>
 
       <!-- Carousel -->
       <div v-if="coverImages.length" class="relative overflow-hidden rounded-xl mb-8">
@@ -88,24 +76,24 @@
       </div>
 
       <!-- Description -->
-      <p class="text-lg text-gray-800 mb-6">{{ research.description }}</p>
+      <p class="text-lg text-gray-800 mb-6">{{ event.description }}</p>
 
       <!-- Rich Content -->
       <div
-        v-html="research.content"
+        v-html="event.content"
         class="prose max-w-none prose-img:rounded prose-p:text-justify"
       />
     </div>
 
-    <div v-else class="text-center text-gray-500 mt-20">Loading research...</div>
+    <div v-else class="text-center text-gray-500 mt-20">Loading event...</div>
   </div>
 </template>
 
 <script setup lang="ts">
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -118,28 +106,17 @@ const db = useFirestore()
 const route = useRoute()
 const router = useRouter()
 
-const research = ref<any>(null)
+const event = ref<any>(null)
 const coverImages = ref<string[]>([])
 const currentSlide = ref(0)
-const deptName = ref<string>('') // ← resolved department name
 let intervalId: ReturnType<typeof setInterval> | null = null
 
-async function loadDepartmentName(departmentId?: string) {
-  if (!departmentId) return
-  const snap = await getDoc(doc(db, 'departments', departmentId))
-  if (snap.exists()) {
-    const data: any = snap.data()
-    deptName.value = data?.name ?? data?.departmentName ?? data?.title ?? ''
-  }
-}
-
-const loadResearch = async () => {
+const loadEvent = async () => {
   const id = route.params.id as string
-  const snap = await getDoc(doc(db, 'researches', id))
+  const snap = await getDoc(doc(db, 'events', id))
   if (snap.exists()) {
-    research.value = snap.data()
-    coverImages.value = research.value.coverImages || []
-    await loadDepartmentName(research.value.departmentId)
+    event.value = snap.data()
+    coverImages.value = event.value.coverImages || []
   }
 }
 
@@ -156,28 +133,44 @@ const nextSlide = () => {
     currentSlide.value = (currentSlide.value + 1) % coverImages.value.length
   }
 }
+
 const prevSlide = () => {
   if (coverImages.value.length) {
     currentSlide.value =
       (currentSlide.value - 1 + coverImages.value.length) % coverImages.value.length
   }
 }
-const setSlide = (index: number) => { currentSlide.value = index }
 
-const goBack = () => { router.push('/admin/super-admin/research') }
-const editResearch = () => {
-  router.push({ path: '/admin/super-admin/research/add_research', query: { id: route.params.id } })
+const setSlide = (index: number) => {
+  currentSlide.value = index
+}
+
+const goBack = () => {
+  router.push('/admin/super-admin/events')
+}
+
+const editEvent = () => {
+  router.push({ path: '/admin/super-admin/events/add_event', query: { id: route.params.id } })
 }
 
 onMounted(() => {
-  loadResearch()
+  loadEvent()
   intervalId = setInterval(nextSlide, 4000)
 })
-onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
+
+onUnmounted(() => {
+  if (intervalId) clearInterval(intervalId)
+})
 </script>
 
 <style scoped>
-.text-maroon { color: #740505; }
-.bg-maroon { background-color: #740505; }
-.border-maroon { border-color: #740505; }
+.text-maroon {
+  color: #740505;
+}
+.bg-maroon {
+  background-color: #740505;
+}
+.border-maroon {
+  border-color: #740505;
+}
 </style>

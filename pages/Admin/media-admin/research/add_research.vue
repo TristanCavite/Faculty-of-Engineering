@@ -106,8 +106,8 @@ import { useFirestore, useStorage } from 'vuefire'
 
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 const db = useFirestore()

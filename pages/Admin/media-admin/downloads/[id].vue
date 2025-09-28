@@ -61,8 +61,8 @@ import { doc, getDoc, Timestamp } from 'firebase/firestore'
 
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 const route = useRoute()

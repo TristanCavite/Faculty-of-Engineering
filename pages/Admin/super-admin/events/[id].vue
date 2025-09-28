@@ -90,7 +90,11 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'super-admin' })
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['super_admin'],
+    layout: "super-admin",
+  });
 
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

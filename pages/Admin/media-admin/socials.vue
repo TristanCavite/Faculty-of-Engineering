@@ -64,10 +64,10 @@
 </template>
 
 <script setup lang="ts">
- definePageMeta({
+  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 import { computed, onMounted, reactive, ref } from 'vue'

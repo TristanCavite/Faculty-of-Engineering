@@ -111,8 +111,8 @@
 <script setup lang="ts">
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 import { doc, deleteDoc } from 'firebase/firestore'

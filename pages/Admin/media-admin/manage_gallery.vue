@@ -93,10 +93,10 @@
   import { useFirebaseStorage, useFirestore } from "vuefire";
   import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
-   definePageMeta({
+  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
   type Item = {

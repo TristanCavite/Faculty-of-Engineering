@@ -166,8 +166,11 @@ import {
   Download as DownloadIcon,
 } from 'lucide-vue-next'
 
-
-definePageMeta({ middleware: 'auth', layout: 'super-admin' })
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['super_admin'],
+    layout: "super-admin",
+  });
 
 
 

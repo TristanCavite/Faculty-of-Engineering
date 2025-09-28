@@ -13,6 +13,7 @@
 
       <form @submit.prevent="submit">
         <fieldset class="grid gap-4">
+          <!-- EMAIL -->
           <div>
             <label for="email" class="block text-sm font-medium text-gray-600">Email</label>
             <input
@@ -26,6 +27,7 @@
             />
           </div>
 
+          <!-- PASSWORD -->
           <div>
             <label for="password" class="block text-sm font-medium text-gray-600">Password</label>
             <input
@@ -39,6 +41,7 @@
             />
           </div>
 
+          <!-- REMEMBER + FORGOT -->
           <div class="flex items-center justify-between mt-2">
             <label class="flex items-center">
               <input v-model="rememberMe" type="checkbox" class="rounded border-gray-300 text-red-600 focus:ring-red-600" />
@@ -50,6 +53,7 @@
             </button>
           </div>
 
+          <!-- SUBMIT -->
           <button
             type="submit"
             :disabled="loading"
@@ -59,6 +63,7 @@
             <span v-else>Signing in…</span>
           </button>
 
+          <!-- CANCEL -->
           <button
             type="button"
             @click="cancel"
@@ -80,14 +85,27 @@
 </template>
 
 <script setup>
+/**
+ * Login (no profile creation)
+ * - Reads canonical:   users/<uid>
+ * - If a legacy random-id doc exists (where('uid','==', uid) and id !== uid),
+ *   it migrates data into users/<uid> and DELETES the legacy doc.
+ * - Then routes by normalized role.
+ */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+
 import {
-  getAuth, signInWithEmailAndPassword, setPersistence,
-  browserLocalPersistence, browserSessionPersistence,
+  getAuth,
+  signInWithEmailAndPassword,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from 'firebase/auth'
+
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc,
+  getFirestore,
+  doc, getDoc, setDoc, deleteDoc,
   collection, query, where, limit, getDocs,
 } from 'firebase/firestore'
 
@@ -103,50 +121,48 @@ const auth = getAuth()
 const db = getFirestore()
 const router = useRouter()
 
-// Read both places; if random-id doc exists, use it and sync users/<uid> to match
-async function loadAndFixProfile(uid) {
+/**
+ * Load canonical user doc; if a legacy random-id doc exists, migrate then delete it.
+ * IMPORTANT: does NOT create a new user profile when missing — admin must create it.
+ */
+async function loadAndMigrateProfile(uid) {
+  // Canonical doc at users/<uid>
   const canonicalRef = doc(db, 'users', uid)
   const canonicalSnap = await getDoc(canonicalRef)
-  let canonical = canonicalSnap.exists() ? { id: canonicalSnap.id, ...canonicalSnap.data() } : null
+  const canonical = canonicalSnap.exists() ? { id: canonicalSnap.id, ...canonicalSnap.data() } : null
 
-  const qRef = query(collection(db, 'users'), where('uid', '==', uid), limit(1))
-  const qs = await getDocs(qRef)
-  const random = !qs.empty ? { id: qs.docs[0].id, ...qs.docs[0].data() } : null
+  // Find legacy random-id doc with same uid
+  const qs = await getDocs(query(collection(db, 'users'), where('uid', '==', uid), limit(3)))
+  const legacyDoc = qs.docs.find(d => d.id !== uid) || null
+  const legacy = legacyDoc ? { id: legacyDoc.id, ...legacyDoc.data() } : null
 
-  // Choose source of truth: prefer the doc that actually has role/status/email set
-  const pick = (a, b) => {
-    const score = (x) => (x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0)
-    return (score(a) >= score(b)) ? a : b
-  }
-  const chosen = pick(random, canonical) || random || canonical
+  // If neither exists, do NOT create — this prevents duplicates forever
+  if (!canonical && !legacy) return null
 
-  // If nothing exists, create canonical fresh
-  if (!chosen) {
-    await setDoc(canonicalRef, {
-      uid, email: auth.currentUser?.email || '',
-      role: 'Faculty', departmentId: null, status: 'active',
-      createdAt: new Date(), updatedAt: new Date(),
-    })
-    const snap = await getDoc(canonicalRef)
-    return { id: uid, ...snap.data() }
-  }
+  // Choose richer source of truth
+  const richness = (x) => (x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0)
+  const chosen = (richness(legacy) > richness(canonical)) ? legacy : canonical
 
-  // Ensure canonical users/<uid> mirrors chosen data (one-time migration)
-  if (!canonical || (canonical.role !== chosen.role || canonical.status !== chosen.status)) {
-    await setDoc(canonicalRef, {
-      ...chosen,
-      uid,
-      email: chosen.email || auth.currentUser?.email || '',
-      updatedAt: new Date(),
-    }, { merge: true })
+  // Upsert into canonical
+  await setDoc(canonicalRef, {
+    ...chosen,
+    uid,
+    email: chosen?.email || auth.currentUser?.email || '',
+    // keep your timestamps on server in admin flows; here it's fine to leave as is
+  }, { merge: true })
+
+  // Delete legacy duplicate so lists stop showing it
+  if (legacy && legacy.id !== uid) {
+    try { await deleteDoc(doc(db, 'users', legacy.id)) }
+    catch (e) { console.warn('Legacy user doc delete failed:', e) }
   }
 
-  // Optionally, you can clean up the random doc later in an admin tool.
-
-  // Return the up-to-date canonical doc
-  const finalSnap = await getDoc(canonicalRef)
-  return { id: finalSnap.id, ...finalSnap.data() }
+  const final = await getDoc(canonicalRef)
+  return { id: final.id, ...final.data() }
 }
+
+// Normalize role to snake_case key
+const toRoleKey = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, '_')
 
 const submit = async () => {
   if (!email.value.trim() || !password.value.trim()) return
@@ -157,29 +173,33 @@ const submit = async () => {
     const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value.trim())
     const uid = cred.user.uid
 
-    // 👇 Load correct profile and sync users/<uid> so middleware also sees the right role
-    const profile = await loadAndFixProfile(uid)
-    const roleRaw = (profile.role || '').toString()
-    const roleSnake = roleRaw.trim().toLowerCase().replace(/\s+/g, '_') // handles "Media Admin" or "media_admin"
-    const status = (profile.status || 'active').toString().toLowerCase()
+    // Load profile and perform one-time migration if a legacy doc exists
+    const profile = await loadAndMigrateProfile(uid)
 
-    if (roleSnake !== 'super_admin' && status !== 'active') {
+    if (!profile) {
+      alert('Your profile has not been set up yet. Please contact a Super Admin.')
+      return
+    }
+
+    const roleKey = toRoleKey(profile.role)
+    const statusKey = toRoleKey(profile.status || 'active')
+
+    if (roleKey !== 'super_admin' && statusKey !== 'active') {
       alert('Your account is inactive. Please contact the administrator.')
       return
     }
 
-    // Route exactly like other admins
-    if (roleSnake === 'super_admin') {
+    // Route by role (change to '/Admin/...' if your folder is capitalized)
+    if (roleKey === 'super_admin') {
       router.push('/admin/super-admin')
-    } else if (roleSnake === 'head_admin') {
+    } else if (roleKey === 'head_admin') {
       router.push('/admin/head-admin')
-    } else if (roleSnake === 'media_admin') {
-      // NOTE: if your folder is "Admin", use '/Admin/media-admin'
+    } else if (roleKey === 'media_admin') {
       router.push('/admin/media-admin')
-    } else if (roleSnake === 'faculty') {
+    } else if (roleKey === 'faculty') {
       router.push('/admin/faculty')
     } else {
-      console.error('Unknown role:', roleRaw)
+      console.error('Unknown role:', profile.role)
       alert('User role is not recognized.')
     }
   } catch (err) {

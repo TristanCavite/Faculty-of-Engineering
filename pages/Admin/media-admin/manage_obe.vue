@@ -77,10 +77,10 @@
   import { computed, onMounted, ref } from "vue";
   import { useFirebaseStorage, useFirestore } from "vuefire";
 
- definePageMeta({
+  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
   const db = useFirestore();

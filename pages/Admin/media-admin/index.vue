@@ -155,22 +155,22 @@ import {
   FlaskConical,
 } from 'lucide-vue-next'
 
-// Restrict this page to Media Admin (and Super Admin fallback).
-definePageMeta({
-  middleware: ['auth'],
-  roles: ['media_admin', 'super_admin'],
-  layout: 'media-admin'
-})
+
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['media_admin'],
+    layout: "media-admin",
+  });
 
 // ---------- Router-aware dynamic routes (only what Media Admin may manage) ----------
 const router = useRouter()
 
 const ROUTE_CANDIDATES = {
-  about:     ['/admin/super-admin/about'],
-  admission: ['/admin/super-admin/admission'],
-  news:      ['/admin/super-admin/news'],
-  events:    ['/admin/super-admin/events'],
-  research:  ['/admin/super-admin/research'],
+  about:     ['/admin/media-admin/about'],
+  admission: ['/admin/media-admin/admission'],
+  news:      ['/admin/media-admin/news'],
+  events:    ['/admin/media-admin/events'],
+  research:  ['/admin/media-admin/research'],
 }
 
 const routes = reactive<Record<string, string>>({
