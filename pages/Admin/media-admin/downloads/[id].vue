@@ -5,7 +5,7 @@
       <!-- Back to list -->
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/downloads')"
+        @click="$router.push('/Admin/media-admin/downloads')"
       >
         ← Back to Downloads
       </UiButton>
@@ -13,22 +13,14 @@
       <!-- Edit current item -->
       <UiButton
         class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        @click="$router.push({ path: '/admin/super-admin/downloads/add_download', query: { id: route.params.id as string } })"
+        @click="$router.push({ path: '/Admin/media-admin/downloads/add_download', query: { id: String(route.params.id) } })"
       >
         Edit
       </UiButton>
     </div>
 
-    <!-- Access control -->
-    <div
-      v-if="!loadingRole && !isSuperAdmin"
-      class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
-    >
-      You don’t have access to this page. Super Admin only.
-    </div>
-
     <!-- Content -->
-    <div v-else-if="docReady" class="space-y-4">
+    <div v-if="docReady" class="space-y-4">
       <!-- Title -->
       <h1 class="text-3xl font-bold text-maroon">{{ item?.title }}</h1>
 
@@ -53,48 +45,42 @@
 </template>
 
 <script setup lang="ts">
-
+/**
+ * Media Admin • Downloads • View by ID
+ * - Guarded by page meta (media_admin)
+ * - All navigations use /Admin/media-admin/... (capital A)
+ * - On missing doc, redirects back to the Media Admin downloads list
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useCurrentUser, useFirestore } from 'vuefire'
+import { useFirestore } from 'vuefire'
 import { doc, getDoc, Timestamp } from 'firebase/firestore'
 
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['media_admin'],
-    layout: "media-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['media_admin'],
+  layout: 'media-admin',
+})
 
 const route = useRoute()
 const router = useRouter()
 const db = useFirestore()
-const currentUser = useCurrentUser()
-
-// ---------- access control ----------
-const isSuperAdmin = ref(false)
-const loadingRole = ref(true)
-onMounted(async () => {
-  if (!currentUser.value) return router.push('/login')
-  try {
-    const userRef = doc(db, 'users', currentUser.value.uid)
-    const snap = await getDoc(userRef)
-    isSuperAdmin.value = snap.exists() && snap.data().role === 'Super Admin'
-  } finally {
-    loadingRole.value = false
-  }
-  if (isSuperAdmin.value) await fetchDoc()
-})
 
 // ---------- doc load ----------
 const item = ref<any>(null)
 const docReady = computed(() => !!item.value)
+
 async function fetchDoc() {
   const id = String(route.params.id)
   const dref = doc(db, 'downloads', id)
   const snap = await getDoc(dref)
-  if (!snap.exists()) return router.replace('/admin/super-admin/downloads')
+  if (!snap.exists()) {
+    return router.replace('/Admin/media-admin/downloads')
+  }
   item.value = { id, ...snap.data() }
 }
+
+onMounted(fetchDoc)
 
 function formatDate(ts?: Timestamp) {
   try {
@@ -109,7 +95,7 @@ function formatDate(ts?: Timestamp) {
   }
 }
 
-// Ensure stored HTML links open in a new tab + are safe-ish
+// Ensure stored HTML links open in a new tab + add noopener
 function externalizedLinks(html = '') {
   return html.replaceAll('<a ', '<a target="_blank" rel="noopener" ')
 }

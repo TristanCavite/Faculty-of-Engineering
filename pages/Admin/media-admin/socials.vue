@@ -14,37 +14,40 @@
       </div>
     </div>
 
-    <!-- Access control -->
-    <div v-if="!loadingRole && !isSuperAdmin"
-         class="rounded border border-red-200 bg-red-50 p-4 text-red-700">
-      You don’t have access to this page. Super Admin only.
-    </div>
-
     <!-- Notice -->
     <transition name="fade">
-      <div v-if="notice" class="rounded border p-3"
-           :class="notice.type === 'success'
-             ? 'border-green-200 bg-green-50 text-green-800'
-             : 'border-red-200 bg-red-50 text-red-800'">
+      <div
+        v-if="notice"
+        class="rounded border p-3"
+        :class="notice.type === 'success'
+          ? 'border-green-200 bg-green-50 text-green-800'
+          : 'border-red-200 bg-red-50 text-red-800'"
+        role="status"
+      >
         {{ notice.text }}
       </div>
     </transition>
 
     <!-- Live preview (icons only, like navbar) -->
-    <section v-if="isSuperAdmin" class="rounded border bg-white p-4">
+    <section class="rounded border bg-white p-4">
       <div class="mb-2 text-sm font-medium text-gray-600">Live preview</div>
       <div class="flex items-center gap-6">
-        <a v-for="it in previewItems" :key="it.key"
-           :href="it.href" target="_blank" rel="noopener"
-           class="text-maroon hover:opacity-80 transition-opacity"
-           :title="labelFor(it.key)">
+        <a
+          v-for="it in previewItems"
+          :key="it.key"
+          :href="it.href"
+          target="_blank"
+          rel="noopener"
+          class="text-maroon transition-opacity hover:opacity-80"
+          :title="labelFor(it.key)"
+        >
           <component :is="iconFor(it.key)" class="h-6 w-6" />
         </a>
       </div>
     </section>
 
     <!-- Form -->
-    <form v-if="isSuperAdmin" class="space-y-5" @submit.prevent="save">
+    <form class="space-y-5" @submit.prevent="save">
       <p class="text-sm text-gray-500">
         Add links for the platforms you want shown in the navbar. Leave others blank to hide them.
         (http/https, mailto:, or tel: are accepted)
@@ -52,10 +55,11 @@
 
       <div v-for="p in PLATFORMS" :key="p.key" class="grid gap-2">
         <label class="text-sm font-medium">{{ p.label }}</label>
-        <input v-model.trim="form[p.key]"
-               type="text"
-               :placeholder="p.placeholder"
-               class="input input-bordered w-full"
+        <input
+          v-model.trim="form[p.key]"
+          type="text"
+          :placeholder="p.placeholder"
+          class="input input-bordered w-full"
         />
         <p v-if="p.help" class="text-xs text-gray-400">{{ p.help }}</p>
       </div>
@@ -64,90 +68,77 @@
 </template>
 
 <script setup lang="ts">
-  definePageMeta({
-     middleware: ['auth'],
-     roles: ['media_admin'],
-    layout: "media-admin",
-  });
+/**
+ * Media Admin • Social Links (site/socials)
+ * - Guarded by page meta (media_admin). Super Admin will still pass via your middleware.
+ * - No additional role checks inside the component.
+ */
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['media_admin'],
+  layout: 'media-admin',
+})
 
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore, useCurrentUser } from 'vuefire'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
-import {
-  Facebook, Instagram, Twitter, Youtube, Linkedin, Globe,
-} from 'lucide-vue-next'
+import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe } from 'lucide-vue-next'
 
 const router = useRouter()
 const db = useFirestore()
 const user = useCurrentUser()
 
-/** Platforms shown in the form and their placeholders (TikTok removed) */
+/** Platforms shown in the form (TikTok removed) */
 const PLATFORMS = [
-  { key: 'facebook',  label: 'Facebook',  placeholder: 'https://facebook.com/your-page', help: '' },
-  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/your-handle', help: '' },
-  { key: 'twitter',   label: 'Twitter / X', placeholder: 'https://twitter.com/your-handle', help: '' },
-  { key: 'youtube',   label: 'YouTube',    placeholder: 'https://youtube.com/@yourchannel', help: '' },
-  { key: 'linkedin',  label: 'LinkedIn',   placeholder: 'https://www.linkedin.com/school/your-page', help: '' },
-  { key: 'website',   label: 'Website',    placeholder: 'https://your.site', help: 'Optional extra link' },
+  { key: 'facebook',  label: 'Facebook',   placeholder: 'https://facebook.com/your-page',             help: '' },
+  { key: 'instagram', label: 'Instagram',  placeholder: 'https://instagram.com/your-handle',          help: '' },
+  { key: 'twitter',   label: 'Twitter / X',placeholder: 'https://twitter.com/your-handle',            help: '' },
+  { key: 'youtube',   label: 'YouTube',    placeholder: 'https://youtube.com/@yourchannel',           help: '' },
+  { key: 'linkedin',  label: 'LinkedIn',   placeholder: 'https://www.linkedin.com/school/your-page',  help: '' },
+  { key: 'website',   label: 'Website',    placeholder: 'https://your.site',                          help: 'Optional extra link' },
 ] as const
-
 type PlatformKey = typeof PLATFORMS[number]['key']
 
 /* ---------- Firestore ---------- */
 const socialsRef = doc(db, 'site', 'socials')
 
-/* ---------- Access control ---------- */
-const isSuperAdmin = ref(false)
-const loadingRole = ref(true)
-onMounted(async () => {
-  if (!user.value) return router.push('/login')
-  try {
-    const uref = doc(db, 'users', user.value.uid)
-    const snap = await getDoc(uref)
-    isSuperAdmin.value = snap.exists() && snap.data().role === 'Super Admin'
-  } finally {
-    loadingRole.value = false
-  }
-
-  if (isSuperAdmin.value) {
-    const snap = await getDoc(socialsRef)
-    const data = (snap.exists() ? snap.data() : {}) as Record<PlatformKey, string>
-    PLATFORMS.forEach(p => form[p.key] = (data[p.key] || ''))
-  }
-})
-
-/* ---------- Form state (TikTok removed) ---------- */
+/* ---------- Form state ---------- */
 const form = reactive<Record<PlatformKey, string>>({
   facebook: '', instagram: '', twitter: '', youtube: '', linkedin: '', website: ''
 })
 
-/* ---------- Live preview helpers (TikTok removed) ---------- */
+/* ---------- Live preview helpers ---------- */
 const ORDER: PlatformKey[] = ['facebook','instagram','twitter','youtube','linkedin','website']
 const ICONS: Record<PlatformKey, any> = {
   facebook: Facebook, instagram: Instagram, twitter: Twitter,
   youtube: Youtube, linkedin: Linkedin, website: Globe,
 }
-
-function iconFor(key: PlatformKey) { return ICONS[key] }
-function labelFor(key: PlatformKey) { return PLATFORMS.find(p => p.key === key)?.label || key }
-function isOk(v?: string) {
-  return typeof v === 'string'
-    && !!v.trim()
-    && /^(https?:\/\/|mailto:|tel:)/i.test(v.trim())
-}
+const iconFor = (key: PlatformKey) => ICONS[key]
+const labelFor = (key: PlatformKey) => PLATFORMS.find(p => p.key === key)?.label || key
+const isOk = (v?: string) =>
+  typeof v === 'string' && !!v.trim() && /^(https?:\/\/|mailto:|tel:)/i.test(v.trim())
 
 const previewItems = computed(() =>
   ORDER.map(k => ({ key: k, href: (form[k] || '').trim() }))
        .filter(x => isOk(x.href))
 )
 
-/* ---------- Save ---------- */
+/* ---------- Notice ---------- */
 const saving = ref(false)
-const notice = ref<{ type: 'success' | 'error', text: string } | null>(null)
+const notice = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
+/* ---------- Init ---------- */
+onMounted(async () => {
+  if (!user.value) return router.push('/login')
+
+  const snap = await getDoc(socialsRef)
+  const data = (snap.exists() ? snap.data() : {}) as Record<PlatformKey, string>
+  PLATFORMS.forEach(p => (form[p.key] = data[p.key] || ''))
+})
+
+/* ---------- Save ---------- */
 async function save() {
-  if (!isSuperAdmin.value) return
   saving.value = true
   try {
     const payload: Record<string, string> = {}
@@ -163,8 +154,11 @@ async function save() {
   }
 }
 
+/* ---------- Nav ---------- */
 function goBack() {
-  router.back()
+  // If you prefer a specific list page:
+  router.push('/Admin/media-admin')
+  // or: router.back()
 }
 </script>
 

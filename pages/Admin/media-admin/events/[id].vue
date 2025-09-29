@@ -146,11 +146,11 @@ const setSlide = (index: number) => {
 }
 
 const goBack = () => {
-  router.push('/admin/super-admin/events')
+  router.push('/admin/media-admin/events')
 }
 
 const editEvent = () => {
-  router.push({ path: '/admin/super-admin/events/add_event', query: { id: route.params.id } })
+  router.push({ path: '/admin/media-admin/events/add_event', query: { id: route.params.id } })
 }
 
 onMounted(() => {

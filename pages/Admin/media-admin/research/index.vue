@@ -5,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage Researches</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/research/add_research')"
+        @click="$router.push('/admin/media-admin/research/add_research')"
       >
         + Add Research
       </UiButton>
@@ -176,7 +176,7 @@ onMounted(async () => {
 })
 
 function readMore(id: string) {
-  router.push(`/Admin/super-admin/research/${id}`)
+  router.push(`/Admin/media-admin/research/${id}`)
 }
 
 function formatDate(isoDate: string) {

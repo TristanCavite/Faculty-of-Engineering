@@ -6,7 +6,6 @@
         {{ isEditMode ? 'Edit Download' : 'Add Download' }}
       </h1>
 
-      <!-- Actions moved here -->
       <div class="flex items-center gap-2">
         <!-- Back -->
         <UiButton
@@ -17,7 +16,7 @@
           ← Back
         </UiButton>
 
-        <!-- Save / Publish (submits the form below by id) -->
+        <!-- Save / Publish -->
         <UiButton
           type="submit"
           :form="formId"
@@ -28,17 +27,11 @@
         </UiButton>
 
         <!-- Cancel Edit / Reset -->
-        <UiButton
-          type="button"
-          class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          @click="resetForm"
-        >
-          {{ isEditMode ? 'Cancel Edit' : 'Reset' }}
-        </UiButton>
+      
       </div>
     </div>
 
-    <!-- ✅ Confirmation / Error Banner -->
+    <!-- Notice -->
     <transition name="fade">
       <div
         v-if="notice"
@@ -53,17 +46,8 @@
       </div>
     </transition>
 
-    <!-- Access control -->
-    <div
-      v-if="!loadingRole && !isSuperAdmin"
-      class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
-    >
-      You don’t have access to this page. Super Admin only.
-    </div>
-
     <!-- Form -->
     <form
-      v-else
       :id="formId"
       class="space-y-6"
       @submit.prevent="save"
@@ -106,28 +90,27 @@
           Tip: Use the 🔗 icon to insert direct-download links (Drive: <code>uc?export=download&id=…</code>).
         </p>
       </div>
-      <!-- (No bottom button row anymore — moved to top-right) -->
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['media_admin'],
-    layout: "media-admin",
-  });
+/**
+ * Media Admin • Downloads • Add/Edit
+ * - Guarded by page meta (media_admin)
+ * - All routes use /Admin/media-admin/...
+ */
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['media_admin'],
+  layout: 'media-admin',
+})
 
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCurrentUser, useFirestore } from 'vuefire'
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  serverTimestamp,
-  updateDoc,
+  addDoc, collection, doc, getDoc, serverTimestamp, updateDoc,
 } from 'firebase/firestore'
 
 const router = useRouter()
@@ -135,28 +118,12 @@ const route = useRoute()
 const db = useFirestore()
 const currentUser = useCurrentUser()
 
-// Form id so the top-right Save button can submit it
+// Form id so top-right Save button can submit it
 const formId = 'downloadForm'
 
 // edit mode via ?id=DOC_ID
 const editId = computed(() => (route.query.id ? String(route.query.id) : null))
 const isEditMode = computed(() => !!editId.value)
-
-// Access control
-const isSuperAdmin = ref(false)
-const loadingRole = ref(true)
-
-onMounted(async () => {
-  if (!currentUser.value) return router.push('/login')
-  try {
-    const userRef = doc(db, 'users', currentUser.value.uid)
-    const snap = await getDoc(userRef)
-    isSuperAdmin.value = snap.exists() && snap.data().role === 'Super Admin'
-  } finally {
-    loadingRole.value = false
-  }
-  if (isSuperAdmin.value && isEditMode.value) await loadForEdit()
-})
 
 // Notice banner
 type NoticeType = 'success' | 'error'
@@ -174,11 +141,15 @@ const form = reactive({ ...initialState })
 const isValid = computed(() => !!form.title && !!form.author)
 const saving = ref(false)
 
+onMounted(async () => {
+  if (isEditMode.value) await loadForEdit()
+})
+
 async function loadForEdit() {
   if (!editId.value) return
   const dref = doc(db, 'downloads', editId.value)
   const snap = await getDoc(dref)
-  if (!snap.exists()) return router.replace('/admin/super-admin/downloads')
+  if (!snap.exists()) return router.replace('/Admin/media-admin/downloads')
   const data = snap.data() as any
   form.title = data.title ?? ''
   form.author = data.author ?? ''
@@ -186,7 +157,7 @@ async function loadForEdit() {
 }
 
 async function save() {
-  if (!isSuperAdmin.value || !isValid.value) return
+  if (!isValid.value) return
   saving.value = true
   try {
     if (isEditMode.value && editId.value) {
@@ -223,7 +194,7 @@ function resetForm() {
 }
 
 function goBack() {
-  router.push('/admin/super-admin/downloads')
+  router.push('/Admin/media-admin/downloads')
 }
 </script>
 

@@ -78,7 +78,7 @@ const news = ref<any>(null)
 const working = ref(false)
 
 function goBackToIndex() {
-  router.push('/Admin/super-admin/news')
+  router.push('/Admin/media-admin/news')
 }
 
 onMounted(async () => {
@@ -96,14 +96,14 @@ async function unpublish() {
       updatedAt: serverTimestamp(),
     })
     // After unpublishing, send it back to the list (now visible under Drafts)
-    router.push('/Admin/super-admin/news')
+    router.push('/Admin/media-admin/news')
   } finally {
     working.value = false
   }
 }
 
 function editNews() {
-  router.push(`/Admin/super-admin/news/add_news?id=${newsId}`)
+  router.push(`/Admin/media-admin/news/add_news?id=${newsId}`)
 }
 
 function formatDate(ts: Timestamp | null) {

@@ -191,11 +191,11 @@ async function submitNews(publish: boolean) {
     if (isEditMode.value && newsId.value) {
       await setDoc(doc(db, 'news', newsId.value), payload, { merge: true })
       alert('News updated!')
-      router.push(`/Admin/super-admin/news/${newsId.value}`)
+      router.push(`/Admin/media-admin/news/${newsId.value}`)
     } else {
       const ref = await addDoc(collection(db, 'news'), payload)
       alert(publish ? 'News published!' : 'News saved as draft.')
-      router.push(`/Admin/super-admin/news/${ref.id}`)
+      router.push(`/Admin/media-admin/news/${ref.id}`)
     }
   } catch (error) {
     console.error('❌ Failed to save news:', error)
@@ -206,9 +206,9 @@ async function submitNews(publish: boolean) {
 /** Close behavior */
 function handleClose() {
   if (isEditMode.value && newsId.value) {
-    router.push(`/Admin/super-admin/news/${newsId.value}`)
+    router.push(`/Admin/media-admin/news/${newsId.value}`)
   } else {
-    router.push('/Admin/super-admin/news')
+    router.push('/Admin/media-admin/news')
   }
 }
 </script>

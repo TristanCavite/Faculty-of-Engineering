@@ -5,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage News</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/news/add_news')"
+        @click="$router.push('/admin/media-admin/news/add_news')"
       >
         + Add News
       </UiButton>
@@ -172,7 +172,7 @@ onMounted(async () => {
 })
 
 function readMore(id: string) {
-  router.push(`/Admin/super-admin/news/${id}`)
+  router.push(`/Admin/media-admin/news/${id}`)
 }
 
 function formatDate(ts: Timestamp | null) {
