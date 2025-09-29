@@ -61,10 +61,9 @@
 <script setup lang="ts">
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
-
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
@@ -79,7 +78,7 @@ const news = ref<any>(null)
 const working = ref(false)
 
 function goBackToIndex() {
-  router.push('/Admin/super-admin/news')
+  router.push('/Admin/media-admin/news')
 }
 
 onMounted(async () => {
@@ -97,14 +96,14 @@ async function unpublish() {
       updatedAt: serverTimestamp(),
     })
     // After unpublishing, send it back to the list (now visible under Drafts)
-    router.push('/Admin/super-admin/news')
+    router.push('/Admin/media-admin/news')
   } finally {
     working.value = false
   }
 }
 
 function editNews() {
-  router.push(`/Admin/super-admin/news/add_news?id=${newsId}`)
+  router.push(`/Admin/media-admin/news/add_news?id=${newsId}`)
 }
 
 function formatDate(ts: Timestamp | null) {

@@ -140,10 +140,10 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useFirestore, useStorage } from "vuefire";
 
- definePageMeta({
+  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 const db = useFirestore();
@@ -246,7 +246,7 @@ const handleSubmit = async () => {
     }
 
     await setDoc(doc(db, "events", id), eventData, { merge: true });
-    router.push("/admin/super-admin/events");
+    router.push("/admin/media-admin/events");
   } catch (err) {
     console.error("Error saving event:", err);
     alert("Something went wrong. Please try again.");

@@ -106,8 +106,8 @@ import { useFirestore, useStorage } from 'vuefire'
 
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 const db = useFirestore()
@@ -215,7 +215,7 @@ const handleSubmit = async () => {
     }
 
     await setDoc(doc(db, 'researches', id), researchData, { merge: true })
-    router.push('/admin/super-admin/research')
+    router.push('/admin/media-admin/research')
   } catch (err) {
     console.error('Error saving research:', err)
     alert('Something went wrong. Please try again.')

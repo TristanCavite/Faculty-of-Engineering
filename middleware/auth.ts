@@ -1,78 +1,179 @@
-// ~/middleware/auth.ts
-// Client-only route middleware that waits for VueFire auth to settle before checking.
-// Protects routes by role/status and avoids false redirects during SSR/hydration.
+// ~/middleware/auth.global.ts
+// Nuxt 3 client-only route middleware with VueFire auth sync.
+// - Waits for Firebase Auth hydration (avoids false redirects on refresh)
+// - Fetches user profile once if reactive state isn't ready yet
+// - Normalizes role strings from Firestore
+// - Supports route-meta role guards and path-prefix guards
+// - Locks down /admin/* (including /admin/super-admin/*)
 
-import { initAuthVuefire, waitForAuthVuefire, useAuthVuefireState } from '@/composables/useAuthVuefire';
+import { initAuthVuefire, waitForAuthVuefire, useAuthVuefireState } from '@/composables/useAuthVuefire'
+import { useFirestore } from 'vuefire'
+import {
+  doc, getDoc, getDocs, query, where, limit as qLimit,
+  collection, type DocumentData, type Firestore
+} from 'firebase/firestore'
+
+// ---------- Types & Helpers ----------
+type Role = 'super_admin' | 'head_admin' | 'faculty' | 'media_admin'
+
+const ADMIN_BASE = '/admin'
+const pathStarts = (p: string, prefix: string) => p === prefix || p.startsWith(prefix + '/')
+
+// Exact PATH public routes only (no startsWith('/'))
+const PUBLIC_ROUTES = new Set<string>(['/', '/login', '/forgot-password', '/unauthorized'])
+
+// Accept both spaced and snake_case role labels, any case.
+function normalizeRole(input: unknown): Role | 'unknown' {
+  if (typeof input !== 'string') return 'unknown'
+  const s = input.trim().toLowerCase().replace(/\s+/g, '_')
+  if (s === 'super_admin') return 'super_admin'
+  if (s === 'head_admin')  return 'head_admin'
+  if (s === 'faculty')     return 'faculty'
+  if (s === 'media_admin') return 'media_admin'
+  return 'unknown'
+}
+
+// Type guard: keep only real Role values (drops 'unknown' at type level)
+function isRole(r: unknown): r is Role {
+  return r === 'super_admin' || r === 'head_admin' || r === 'faculty' || r === 'media_admin'
+}
+
+// ACTIVE (case-insensitive). Super Admin bypasses this later.
+function isActive(status: unknown): boolean {
+  return typeof status === 'string' && status.trim().toLowerCase() === 'active'
+}
+
+// Fetch profile once on demand.
+// 1) Try doc(users, uid). 2) If missing, query where('uid','==', uid) limit 1.
+async function fetchProfileOnce(db: Firestore, uid: string): Promise<DocumentData | null> {
+  const byId = await getDoc(doc(db, 'users', uid))
+  if (byId.exists()) return { id: byId.id, ...byId.data() }
+
+  const q = query(collection(db, 'users'), where('uid', '==', uid), qLimit(1))
+  const qs = await getDocs(q)
+  if (!qs.empty) {
+    const snap = qs.docs[0]
+    return { id: snap.id, ...snap.data() }
+  }
+  return null
+}
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  // 1) Skip server-side: Firebase client auth won't be available on server
-  if (!process.client) {
-    return;
-  }
+  // 1) Client-only
+  if (!process.client) return
 
-  // 2) Ensure our listener has been initialized (idempotent)
-  await initAuthVuefire();
-
-  // 3) Wait until we've seen initial auth state (user or null)
+  // 2) Init & wait for initial auth state
+  await initAuthVuefire()
   try {
-    await waitForAuthVuefire(7000); // tune timeout as needed
+    await waitForAuthVuefire(10000)
   } catch (err) {
-    // If we timed out, don't aggressively redirect; log and allow navigation
-    // This prevents accidental redirects from transient races.
-    // eslint-disable-next-line no-console
-    console.warn('[auth middleware] waitForAuthVuefire timed out:', err);
-    return;
+    console.warn('[auth] waitForAuthVuefire timeout:', err)
+    return
   }
 
-  const { currentUser, userProfile } = useAuthVuefireState();
+  const { currentUser, userProfile } = useAuthVuefireState()
 
-  // 4) Allow truly public routes (e.g., login, forgot-password). Add your public routes here.
-  const publicRoutes = ['/login', '/forgot-password', '/'];
-  if (publicRoutes.some((p) => to.path.startsWith(p))) {
-    return;
-  }
+  // 3) Public routes (exact match)
+  if (PUBLIC_ROUTES.has(to.path)) return
 
-  // 5) If there's no firebase user -> redirect to login
+  // 4) Must be signed in
   if (!currentUser.value) {
-    // debug
-    // eslint-disable-next-line no-console
-    console.log('[auth middleware] No firebase user - redirecting to /login');
-    return navigateTo('/login');
+    console.log('[auth] no Firebase user -> /login')
+    return navigateTo('/login', { replace: true })
   }
 
-  // 6) Ensure we have userProfile (should be kept in sync by useDocument watcher)
-  const profile = userProfile.value;
+  // 5) Ensure profile (fetch-once fallback prevents refresh logouts)
+  const db = useFirestore()
+  let profile: any = userProfile.value
   if (!profile) {
-    // If the profile isn't available, treat as missing doc: redirect to login
-    // (Alternative: try to fetch once more from Firestore; but VueFire's watch should have populated it.)
-    // eslint-disable-next-line no-console
-    console.warn('[auth middleware] userProfile missing - redirecting to /login');
-    return navigateTo('/login');
+    try {
+      profile = await fetchProfileOnce(db, currentUser.value.uid)
+      if (!profile) {
+        console.warn('[auth] profile missing -> /login')
+        return navigateTo('/login', { replace: true })
+      }
+    } catch (e) {
+      console.error('[auth] profile fetch failed:', e)
+      return navigateTo('/login', { replace: true })
+    }
   }
 
-  const role = profile.role;
-  const status = profile.status;
+  // 6) Normalize role & status
+  const normalizedRole = normalizeRole(profile.role)
+  const active = isActive(profile.status)
 
-  // 7) Status rules (match your logic): allow Super Admin always
-  if (role !== 'Super Admin' && status !== 'active') {
-    // eslint-disable-next-line no-console
-    console.log('[auth middleware] User is inactive - redirecting to login');
-    alert('Your account is inactive. Please contact the administrator.');
-    return navigateTo('/login');
-  }
-
-  // 8) Role-based route guarding
-  if (to.path.startsWith('/super-admin') && role !== 'Super Admin') {
-    return navigateTo('/unauthorized');
-  }
-  if (to.path.startsWith('/head-admin') && role !== 'Head Admin') {
-    return navigateTo('/unauthorized');
-  }
-  if (to.path.startsWith('/faculty') && role !== 'Faculty') {
-    return navigateTo('/unauthorized');
+  // If role couldn't be normalized, block (prevents TS error and unsafe access)
+  if (!isRole(normalizedRole)) {
+    console.warn('[auth] unknown role -> /unauthorized')
+    return navigateTo('/unauthorized', { replace: true })
   }
 
-  // All good
-  // eslint-disable-next-line no-console
-  console.log(`[auth middleware] Access granted for ${currentUser.value.uid} role=${role}`);
-});
+  // 7) Status: super_admin bypass; others must be active
+  if (normalizedRole !== 'super_admin' && !active) {
+    console.log('[auth] inactive account -> /login')
+    return navigateTo('/login', { replace: true })
+  }
+
+  // 8-A) Route-meta roles (preferred)
+  const metaRoles = (to.meta?.roles ?? []) as string[] | undefined
+  if (Array.isArray(metaRoles) && metaRoles.length > 0) {
+    // Normalize meta roles and drop unknowns with a type predicate
+    const allowed: Role[] = metaRoles
+      .map(normalizeRole)
+      .filter((r): r is Role => isRole(r))
+
+    if (!allowed.includes(normalizedRole)) {
+      return navigateTo('/unauthorized', { replace: true })
+    }
+    // meta passed -> allow
+    return
+  }
+
+  // 8-B) Path-prefix fallback for pages without meta (locks /admin/**)
+  if (pathStarts(to.path, ADMIN_BASE)) {
+    // Super Admin area
+    const SUPER_ADMIN_PREFIX = `${ADMIN_BASE}/super-admin`
+    if (pathStarts(to.path, SUPER_ADMIN_PREFIX)) {
+      if (normalizedRole === 'super_admin') return
+
+      // Media Admin: allow only specific content areas under super-admin
+      if (normalizedRole === 'media_admin') {
+        const mediaAllowed = [
+          `${SUPER_ADMIN_PREFIX}/about`,
+          `${SUPER_ADMIN_PREFIX}/admission`,
+          `${SUPER_ADMIN_PREFIX}/news`,
+          `${SUPER_ADMIN_PREFIX}/events`,
+          `${SUPER_ADMIN_PREFIX}/research`,
+        ]
+        const ok = mediaAllowed.some((p) => pathStarts(to.path, p))
+        if (ok) return
+      }
+
+      return navigateTo('/unauthorized', { replace: true })
+    }
+
+    // Head Admin area
+    const HEAD_ADMIN_PREFIX = `${ADMIN_BASE}/head-admin`
+    if (pathStarts(to.path, HEAD_ADMIN_PREFIX)) {
+      if (normalizedRole === 'head_admin' || normalizedRole === 'super_admin') return
+      return navigateTo('/unauthorized', { replace: true })
+    }
+
+    // Faculty area
+    const FACULTY_PREFIX = `${ADMIN_BASE}/faculty`
+    if (pathStarts(to.path, FACULTY_PREFIX)) {
+      if (normalizedRole === 'faculty' || normalizedRole === 'super_admin') return
+      return navigateTo('/unauthorized', { replace: true })
+    }
+
+    // Media Admin area (if you add a dedicated section)
+    const MEDIA_ADMIN_PREFIX = `${ADMIN_BASE}/media-admin`
+    if (pathStarts(to.path, MEDIA_ADMIN_PREFIX)) {
+      if (normalizedRole === 'media_admin' || normalizedRole === 'super_admin') return
+      return navigateTo('/unauthorized', { replace: true })
+    }
+  }
+
+  // 9) Default allow
+  console.log(`[auth] allow uid=${currentUser.value.uid} role=${normalizedRole}`)
+})

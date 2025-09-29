@@ -104,8 +104,8 @@
 <script setup lang="ts">
  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -164,9 +164,9 @@ const prevSlide = () => {
 }
 const setSlide = (index: number) => { currentSlide.value = index }
 
-const goBack = () => { router.push('/admin/super-admin/research') }
+const goBack = () => { router.push('/admin/media-admin/research') }
 const editResearch = () => {
-  router.push({ path: '/admin/super-admin/research/add_research', query: { id: route.params.id } })
+  router.push({ path: '/admin/media-admin/research/add_research', query: { id: route.params.id } })
 }
 
 onMounted(() => {

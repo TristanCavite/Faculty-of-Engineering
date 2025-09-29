@@ -5,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage Downloads</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/downloads/add_download')"
+        @click="$router.push('/admin/media-admin/downloads/add_download')"
       >
         + Add Download
       </UiButton>
@@ -92,10 +92,10 @@
   import { useFirestore } from "vuefire";
   import type { DocumentData } from "firebase/firestore";
 
-   definePageMeta({
+  definePageMeta({
      middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+     roles: ['media_admin'],
+    layout: "media-admin",
   });
 
   const db = useFirestore();
@@ -118,7 +118,7 @@
 
   function readMore(id: string) {
     // mirrors your News route style
-    router.push(`/Admin/super-admin/downloads/${id}`);
+    router.push(`/Admin/media-admin/downloads/${id}`);
   }
 
   function formatDate(ts: Timestamp | null) {
