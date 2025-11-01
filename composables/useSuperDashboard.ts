@@ -19,6 +19,7 @@ import {
   Newspaper,
   CalendarFold,
   Download as DownloadIcon,
+  FlaskConical,
 } from 'lucide-vue-next'
 
 export function useSuperDashboard() {
@@ -180,7 +181,7 @@ export function useSuperDashboard() {
     { to: routes.news,        label: 'News',        icon: Newspaper,    color: 'text-amber-600',   ring: 'ring-amber-400/30 bg-amber-50' },
     { to: routes.events,      label: 'Events',      icon: CalendarFold, color: 'text-fuchsia-600', ring: 'ring-fuchsia-400/30 bg-fuchsia-50' },
     { to: routes.downloads,   label: 'Downloads',   icon: DownloadIcon, color: 'text-indigo-600',  ring: 'ring-indigo-400/30 bg-indigo-50' },
-    { to: routes.research,    label: 'Research',    icon: CalendarFold, color: 'text-rose-600',    ring: 'ring-rose-400/30 bg-rose-50' },
+    { to: routes.research,    label: 'Research',    icon: FlaskConical, color: 'text-rose-600',    ring: 'ring-rose-400/30 bg-rose-50' },
   ])
 
   // ---------- Fetch all ----------
