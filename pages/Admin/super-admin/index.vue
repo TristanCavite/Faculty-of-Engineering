@@ -33,12 +33,12 @@
         />
         <AdminStatCard
           :icon="CalendarFold" icon-color="text-fuchsia-600" ring="ring-fuchsia-400/30 bg-fuchsia-50"
-          label="Events" :value="stats.events" :loading="loading" sub="Total events"
+          label="Events (Published)" :value="stats.events" :loading="loading" sub="Total events"
         />
         <AdminStatCard
-          :icon="DownloadIcon" icon-color="text-indigo-600" ring="ring-indigo-400/30 bg-indigo-50"
-          label="Downloads" :value="stats.downloads" :loading="loading" sub="Files available"
-        />
+      :icon="FlaskConical" icon-color="text-rose-600" ring="ring-rose-400/30 bg-rose-50"
+      label="Research (Published)" :value="stats.research" :loading="loading" sub="Live studies"
+    />
       </div>
     </section>
 
@@ -97,6 +97,7 @@ import {
   Building2,
   Newspaper,
   CalendarFold,
+  FlaskConical,
   Download as DownloadIcon,
 } from 'lucide-vue-next'
 

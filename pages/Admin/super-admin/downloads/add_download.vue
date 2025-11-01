@@ -1,44 +1,45 @@
+<!-- pages/admin/super-admin/downloads/add_download.vue -->
 <template>
-  <div class="mx-auto max-w-6xl space-y-6">
-    <!-- Top bar: Title (left) + Back / Save / Cancel (right) -->
+  <div class="mx-auto max-w-6xl px-4 py-8 md:pt-10 space-y-6">
+    <!-- Top bar -->
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
+      <h1 class="text-2xl font-bold text-maroon">
         {{ isEditMode ? 'Edit Download' : 'Add Download' }}
       </h1>
 
-      <!-- Actions moved here -->
       <div class="flex items-center gap-2">
-        <!-- Back -->
+        <!-- Close (back) -->
         <UiButton
           type="button"
-          class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          class="btn-outline-maroon"
           @click="goBack"
         >
-          ← Back
+          Close
         </UiButton>
 
-        <!-- Save / Publish (submits the form below by id) -->
-        <UiButton
-          type="submit"
-          :form="formId"
-          class="bg-maroon text-white hover:opacity-90"
-          :disabled="saving || !isValid"
-        >
-          {{ isEditMode ? 'Save Changes' : 'Publish' }}
-        </UiButton>
-
-        <!-- Cancel Edit / Reset -->
+        <!-- Save (draft) -->
         <UiButton
           type="button"
-          class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          @click="resetForm"
+          class="btn-outline-maroon"
+          :disabled="saving || !isValid"
+          @click="saveDownload(false)"
         >
-          {{ isEditMode ? 'Cancel Edit' : 'Reset' }}
+          {{ saving && lastAction==='save' ? 'Saving…' : 'Save' }}
+        </UiButton>
+
+        <!-- Publish -->
+        <UiButton
+          type="button"
+          class="bg-maroon text-white hover:opacity-90"
+          :disabled="saving || !isValid"
+          @click="saveDownload(true)"
+        >
+          {{ saving && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
         </UiButton>
       </div>
     </div>
 
-    <!-- ✅ Confirmation / Error Banner -->
+    <!-- Notice -->
     <transition name="fade">
       <div
         v-if="notice"
@@ -53,7 +54,7 @@
       </div>
     </transition>
 
-    <!-- Access control -->
+    <!-- Access guard -->
     <div
       v-if="!loadingRole && !isSuperAdmin"
       class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
@@ -62,12 +63,7 @@
     </div>
 
     <!-- Form -->
-    <form
-      v-else
-      :id="formId"
-      class="space-y-6"
-      @submit.prevent="save"
-    >
+    <form v-else class="space-y-6" @submit.prevent>
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Title -->
         <div>
@@ -98,25 +94,29 @@
         </div>
       </div>
 
-      <!-- Content (Tiptap) -->
-      <div>
+      <!-- Content -->
+      <div @click.capture="suppressButtonSubmit">
         <label class="mb-2 block text-sm font-medium">Content</label>
-        <UiTiptapEditor v-model="form.content" :editing="true" class="min-h-[320px]" />
+        <UiTiptapEditor
+          v-model="form.content"
+          :editing="true"
+          class="min-h-[320px] rounded border border-gray-300 bg-white"
+        />
         <p class="mt-1 text-xs text-gray-500">
-          Tip: Use the 🔗 icon to insert direct-download links (Drive: <code>uc?export=download&id=…</code>).
+          Tip: Use the 🔗 icon to insert direct-download links (Google Drive style:
+          <code>uc?export=download&id=…</code>).
         </p>
       </div>
-      <!-- (No bottom button row anymore — moved to top-right) -->
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -130,19 +130,17 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 
+/* core */
 const router = useRouter()
 const route = useRoute()
 const db = useFirestore()
 const currentUser = useCurrentUser()
 
-// Form id so the top-right Save button can submit it
-const formId = 'downloadForm'
-
-// edit mode via ?id=DOC_ID
+/* edit mode */
 const editId = computed(() => (route.query.id ? String(route.query.id) : null))
 const isEditMode = computed(() => !!editId.value)
 
-// Access control
+/* access */
 const isSuperAdmin = ref(false)
 const loadingRole = ref(true)
 
@@ -151,28 +149,30 @@ onMounted(async () => {
   try {
     const userRef = doc(db, 'users', currentUser.value.uid)
     const snap = await getDoc(userRef)
-    isSuperAdmin.value = snap.exists() && snap.data().role === 'Super Admin'
+    const role = (snap.exists() && (snap.data() as any).role) || ''
+    isSuperAdmin.value = String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
   } finally {
     loadingRole.value = false
   }
   if (isSuperAdmin.value && isEditMode.value) await loadForEdit()
 })
 
-// Notice banner
+/* notices */
 type NoticeType = 'success' | 'error'
 const notice = ref<{ type: NoticeType; title: string } | null>(null)
 let hideTimer: any = null
-function showNotice(n: { type: NoticeType; title: string }, ms = 3200) {
+function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
   notice.value = n
   clearTimeout(hideTimer)
   hideTimer = setTimeout(() => (notice.value = null), ms)
 }
 
-// Form state
+/* form */
 const initialState = { title: '', author: '', content: '' }
 const form = reactive({ ...initialState })
 const isValid = computed(() => !!form.title && !!form.author)
 const saving = ref(false)
+const lastAction = ref<'save' | 'publish' | null>(null)
 
 async function loadForEdit() {
   if (!editId.value) return
@@ -185,50 +185,77 @@ async function loadForEdit() {
   form.content = data.content ?? ''
 }
 
-async function save() {
+/** publish=true -> published: true (+publishedAt), else draft */
+async function saveDownload(publish: boolean) {
   if (!isSuperAdmin.value || !isValid.value) return
+  if (saving.value) return
   saving.value = true
+  lastAction.value = publish ? 'publish' : 'save'
+
   try {
     if (isEditMode.value && editId.value) {
       await updateDoc(doc(db, 'downloads', editId.value), {
         title: form.title,
         author: form.author,
         content: form.content,
+        published: publish,
+        publishedAt: publish ? serverTimestamp() : null,
         updatedAt: serverTimestamp(),
         updatedBy: currentUser.value?.uid ?? null,
       })
-      showNotice({ type: 'success', title: 'Download updated successfully.' })
+      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft saved.' })
     } else {
-      await addDoc(collection(db, 'downloads'), {
+      const ref = await addDoc(collection(db, 'downloads'), {
         title: form.title,
         author: form.author,
         content: form.content,
+        published: publish,
+        publishedAt: publish ? serverTimestamp() : null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdBy: currentUser.value?.uid ?? null,
       })
-      Object.assign(form, { ...initialState })
-      showNotice({ type: 'success', title: 'Download added successfully.' })
+      // After creating, move into edit mode (same as Research UX)
+      await router.replace({ path: '/admin/super-admin/downloads/add_download', query: { id: ref.id } })
+      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft created.' })
     }
   } catch (e) {
-    showNotice({ type: 'error', title: 'Failed to save download.' })
+    console.error(e)
+    showNotice({ type: 'error', title: 'Failed to save. Please try again.' })
   } finally {
     saving.value = false
   }
 }
 
-function resetForm() {
-  if (isEditMode.value) loadForEdit()
-  else Object.assign(form, { ...initialState })
-}
-
 function goBack() {
   router.push('/admin/super-admin/downloads')
+}
+
+/* Prevent toolbar buttons from submitting form */
+function suppressButtonSubmit(event: Event) {
+  const el = event.target as HTMLElement
+  const btn = el?.closest?.('button') as HTMLButtonElement | null
+  if (!btn) return
+  if (!btn.type || btn.type.toLowerCase() === 'submit') event.preventDefault()
 }
 </script>
 
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-.bg-maroon { background-color: #740505; }
+
+.text-maroon { color:#740505; }
+.bg-maroon { background-color:#740505; }
+
+/* outline pill identical to Research page */
+.btn-outline-maroon {
+  background-color: #ffffff;
+  border: 1px solid #740505;
+  color: #740505;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.btn-outline-maroon:hover {
+  background-color: #740505;
+  color: #ffffff !important;
+}
 </style>

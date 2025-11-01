@@ -1,14 +1,50 @@
 <template>
   <div class="mx-auto max-w-5xl px-4 py-8">
-    <h1 class="text-maroon mb-6 text-2xl font-bold">
-      {{ isEditMode ? "Edit Research" : "Add New Research" }}
-    </h1>
+    <!-- Header + Actions -->
+    <div class="mb-6 flex items-center justify-between gap-4">
+      <h1 class="text-2xl font-bold text-maroon">
+        {{ isEditMode ? 'Edit Research' : 'Add New Research' }}
+      </h1>
+
+      <div class="flex items-center gap-3">
+        <UiButton
+          type="button"
+          class="btn-outline-maroon"
+          @click="router.push('/admin/super-admin/research')"
+        >
+          Close
+        </UiButton>
+
+        <UiButton
+          type="button"
+          class="btn-outline-maroon"
+          :disabled="loading"
+          @click="saveResearch(false)"
+        >
+          {{ loading && lastAction==='save' ? 'Saving…' : 'Save' }}
+        </UiButton>
+
+        <UiButton
+          type="button"
+          class="bg-maroon text-white hover:opacity-90"
+          :disabled="loading"
+          @click="saveResearch(true)"
+        >
+          {{ loading && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
+        </UiButton>
+      </div>
+    </div>
+
     <div v-if="isEditMode" class="mb-4 text-sm text-gray-500">
       You are editing an existing research entry.
     </div>
 
     <!-- FORM -->
-    <form @submit.prevent="handleSubmit" class="space-y-6">
+    <form
+      @submit.prevent="handleSubmit"
+      class="space-y-6"
+      novalidate
+    >
       <!-- Title -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Title</label>
@@ -73,26 +109,18 @@
       </div>
 
       <!-- Tiptap Editor -->
-      <div>
-        <div @click.capture="suppressButtonSubmit">
-          <label class="mb-1 block text-sm font-medium text-gray-700">Content</label>
-          <UiTiptapEditor
-            v-if="editorReady"
-            :modelValue="form.content"
-            :editing="true"
-            class="rounded border border-gray-300 bg-white"
-            @update:modelValue="(val) => (form.content = val)"
-            @imageUpload="handleEditorImageUpload"
-          />
-        </div>
+      <div @click.capture="suppressButtonSubmit">
+        <label class="mb-1 block text-sm font-medium text-gray-700">Content</label>
+        <UiTiptapEditor
+          v-if="editorReady"
+          :modelValue="form.content"
+          :editing="true"
+          class="rounded border border-gray-300 bg-white"
+          @update:modelValue="(val) => (form.content = val)"
+          @imageUpload="handleEditorImageUpload"
+        />
       </div>
-
-      <!-- Save Button -->
-      <div class="pt-4">
-        <UiButton class="bg-maroon text-white" type="submit" :disabled="loading">
-          {{ loading ? "Saving..." : isEditMode ? "Update Research" : "Create Research" }}
-        </UiButton>
-      </div>
+      <!-- No bottom draft button (Save/Publish are in the header) -->
     </form>
   </div>
 </template>
@@ -104,11 +132,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore, useStorage } from 'vuefire'
 
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
 const db = useFirestore()
 const storage = useStorage()
@@ -139,21 +167,22 @@ const form = ref({
   content: '',
   coverImages: [] as string[],
   departmentId: '',
-  researchers: '', // <-- plain text
+  researchers: '',
 })
 
-/* Local UI state */
+/* Local state */
 const imageFiles = ref<File[]>([])
 const previewUrls = ref<string[]>([])
 const loading = ref(false)
+const lastAction = ref<'save' | 'publish' | null>(null)
 const editorReady = ref(false)
 
-const handleFileChange = (e: Event) => {
+function handleFileChange(e: Event) {
   const target = e.target as HTMLInputElement
   const files = target.files
   if (!files) return
   imageFiles.value = Array.from(files)
-  previewUrls.value = imageFiles.value.map((file) => URL.createObjectURL(file))
+  previewUrls.value = imageFiles.value.map((f) => URL.createObjectURL(f))
 }
 
 /* Load existing research + departments */
@@ -173,7 +202,6 @@ onMounted(async () => {
         content: data.content || '',
         coverImages: data.coverImages || [],
         departmentId: data.departmentId || '',
-        // be tolerant: if older docs saved array, join to a readable string
         researchers: Array.isArray(data.researchers) ? data.researchers.join(', ') : (data.researchers || ''),
       }
       previewUrls.value = form.value.coverImages
@@ -181,40 +209,42 @@ onMounted(async () => {
   }
 })
 
-/* Submit */
-const handleSubmit = async () => {
+/** Save handler: publish=true => published, else draft */
+async function saveResearch(publish: boolean) {
   if (!form.value.departmentId) {
     alert('Please select a department.')
     return
   }
-
+  if (loading.value) return
   loading.value = true
+  lastAction.value = publish ? 'publish' : 'save'
+
   try {
     const id = (route.query.id as string) || crypto.randomUUID()
-    let uploadedUrls: string[] = form.value.coverImages || []
 
+    // upload covers if new files chosen
+    let uploadedUrls: string[] = form.value.coverImages || []
     if (imageFiles.value.length) {
       uploadedUrls = []
       for (const [index, file] of imageFiles.value.entries()) {
-        const path = `researches/${id}/cover_${index}.jpg`
+        const ext = file.name.split('.').pop() || 'jpg'
+        const path = `researches/${id}/cover_${index}.${ext}`
         const fileRef = storageRef(storage, path)
         await uploadBytes(fileRef, file)
-        const url = await getDownloadURL(fileRef)
-        uploadedUrls.push(url)
+        uploadedUrls.push(await getDownloadURL(fileRef))
       }
     }
 
-    const researchData: any = {
+    const payload: any = {
       ...form.value,
       coverImages: uploadedUrls,
+      published: publish,
+      publishedAt: publish ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
     }
+    if (!isEditMode.value) payload.createdAt = serverTimestamp()
 
-    if (!isEditMode.value) {
-      researchData.createdAt = serverTimestamp()
-    }
-
-    await setDoc(doc(db, 'researches', id), researchData, { merge: true })
+    await setDoc(doc(db, 'researches', id), payload, { merge: true })
     router.push('/admin/super-admin/research')
   } catch (err) {
     console.error('Error saving research:', err)
@@ -224,20 +254,43 @@ const handleSubmit = async () => {
   }
 }
 
+/** If user presses Enter inside a field, treat as Save (draft) */
+async function handleSubmit() {
+  await saveResearch(false)
+}
+
 /* Editor image upload */
 const handleEditorImageUpload = async (file: File): Promise<string> => {
   const fileId = crypto.randomUUID()
-  const path = `researches/editor/${fileId}`
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `researches/editor/${fileId}.${ext}`
   const fileRef = storageRef(storage, path)
   await uploadBytes(fileRef, file)
   return await getDownloadURL(fileRef)
 }
 
-/* Prevent toolbar buttons from submitting form */
+/* Prevent editor toolbar buttons from accidentally submitting the form */
 function suppressButtonSubmit(event: Event) {
-  const target = event.target as HTMLElement
-  if (target?.tagName === 'BUTTON') {
-    event.preventDefault()
-  }
+  const el = event.target as HTMLElement
+  const btn = el?.closest?.('button') as HTMLButtonElement | null
+  if (!btn) return
+  if (!btn.type || btn.type.toLowerCase() === 'submit') event.preventDefault()
 }
 </script>
+
+<style scoped>
+.text-maroon { color:#740505; }
+.bg-maroon { background-color:#740505; }
+
+/* Outline pill that flips to maroon with white text on hover */
+.btn-outline-maroon {
+  background-color: #ffffff;
+  border: 1px solid #740505;
+  color: #740505;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.btn-outline-maroon:hover {
+  background-color: #740505;
+  color: #ffffff !important;
+}
+</style>

@@ -1,10 +1,10 @@
 <template>
   <div class="max-w-6xl mx-auto px-4 py-10">
-    <!-- Buttons -->
-    <div class="flex justify-end gap-4 mb-6">
+    <!-- Top buttons (LEFT) -->
+    <div class="mb-6 flex justify-start gap-4">
       <UiButton
-        variant="outline"
-        class="border-maroon text-maroon hover:bg-maroon hover:text-white"
+        type="button"
+        class="btn-outline-maroon"
         @click="goBack"
       >
         <template #icon>
@@ -13,7 +13,24 @@
         Back to Research
       </UiButton>
 
-      <UiButton class="bg-maroon text-white hover:opacity-90" @click="editResearch">
+      <!-- Show UNPUBLISH only if this research is published -->
+      <UiButton
+        v-if="research?.published === true"
+        type="button"
+        class="bg-maroon text-white hover:opacity-90"
+        :disabled="busy"
+        @click="unpublish"
+      >
+        {{ busy ? 'Unpublishing…' : 'Unpublish' }}
+      </UiButton>
+
+      <!-- Otherwise show EDIT (drafts can be edited) -->
+      <UiButton
+        v-else
+        type="button"
+        class="bg-maroon text-white hover:opacity-90"
+        @click="editResearch"
+      >
         <template #icon>
           <Pen class="w-4 h-4" />
         </template>
@@ -24,10 +41,10 @@
     <!-- Research Content -->
     <div v-if="research">
       <!-- Title -->
-      <h1 class="text-3xl font-bold text-maroon mb-2">{{ research.title }}</h1>
+      <h1 class="mb-2 text-3xl font-bold text-maroon">{{ research.title }}</h1>
 
-      <!-- Meta (Date • Department • Researchers) -->
-      <div class="text-sm text-gray-600 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <!-- Meta -->
+      <div class="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
         <span>{{ formatDate(research.date) }}</span>
 
         <template v-if="deptName">
@@ -42,7 +59,7 @@
       </div>
 
       <!-- Carousel -->
-      <div v-if="coverImages.length" class="relative overflow-hidden rounded-xl mb-8">
+      <div v-if="coverImages.length" class="relative mb-8 overflow-hidden rounded-xl">
         <div
           class="flex transition-transform duration-700 ease-in-out"
           :style="{ transform: `translateX(-${currentSlide * 100}%)` }"
@@ -50,11 +67,11 @@
           <div
             v-for="(img, index) in coverImages"
             :key="index"
-            class="flex-shrink-0 w-full h-[400px]"
+            class="h-[400px] w-full flex-shrink-0"
           >
             <img
               :src="img"
-              class="w-full h-full object-cover"
+              class="h-full w-full object-cover"
               :alt="`Slide ${index + 1}`"
               loading="lazy"
             />
@@ -63,32 +80,32 @@
 
         <!-- Arrows -->
         <button
-          class="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow"
+          class="absolute left-4 top-1/2 z-10 -translate-y-1/2 transform rounded-full bg-white/80 p-2 shadow hover:bg-white"
           @click="prevSlide"
         >
-          <ChevronLeft class="w-6 h-6 text-maroon" />
+          <ChevronLeft class="h-6 w-6 text-maroon" />
         </button>
         <button
-          class="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full shadow"
+          class="absolute right-4 top-1/2 z-10 -translate-y-1/2 transform rounded-full bg-white/80 p-2 shadow hover:bg-white"
           @click="nextSlide"
         >
-          <ChevronRight class="w-6 h-6 text-maroon" />
+          <ChevronRight class="h-6 w-6 text-maroon" />
         </button>
 
         <!-- Dots -->
-        <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+        <div class="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 transform flex gap-2">
           <span
-            v-for="(img, index) in coverImages"
+            v-for="(_, index) in coverImages"
             :key="index"
-            class="w-3 h-3 rounded-full"
+            class="h-3 w-3 rounded-full"
             :class="currentSlide === index ? 'bg-maroon' : 'bg-gray-300'"
             @click="setSlide(index)"
-          ></span>
+          />
         </div>
       </div>
 
       <!-- Description -->
-      <p class="text-lg text-gray-800 mb-6">{{ research.description }}</p>
+      <p class="mb-6 text-lg text-gray-800">{{ research.description }}</p>
 
       <!-- Rich Content -->
       <div
@@ -97,21 +114,21 @@
       />
     </div>
 
-    <div v-else class="text-center text-gray-500 mt-20">Loading research...</div>
+    <div v-else class="mt-20 text-center text-gray-500">Loading research...</div>
   </div>
 </template>
 
 <script setup lang="ts">
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { ArrowLeft, Pen, ChevronRight, ChevronLeft } from 'lucide-vue-next'
 
 const db = useFirestore()
@@ -121,7 +138,8 @@ const router = useRouter()
 const research = ref<any>(null)
 const coverImages = ref<string[]>([])
 const currentSlide = ref(0)
-const deptName = ref<string>('') // ← resolved department name
+const deptName = ref<string>('')
+const busy = ref(false)
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 async function loadDepartmentName(departmentId?: string) {
@@ -133,7 +151,7 @@ async function loadDepartmentName(departmentId?: string) {
   }
 }
 
-const loadResearch = async () => {
+async function loadResearch() {
   const id = route.params.id as string
   const snap = await getDoc(doc(db, 'researches', id))
   if (snap.exists()) {
@@ -148,25 +166,51 @@ const formatDate = (iso: string) =>
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
   })
 
-const nextSlide = () => {
+function nextSlide() {
   if (coverImages.value.length) {
     currentSlide.value = (currentSlide.value + 1) % coverImages.value.length
   }
 }
-const prevSlide = () => {
+function prevSlide() {
   if (coverImages.value.length) {
     currentSlide.value =
       (currentSlide.value - 1 + coverImages.value.length) % coverImages.value.length
   }
 }
-const setSlide = (index: number) => { currentSlide.value = index }
+function setSlide(i: number) {
+  currentSlide.value = i
+}
 
-const goBack = () => { router.push('/admin/super-admin/research') }
-const editResearch = () => {
-  router.push({ path: '/admin/super-admin/research/add_research', query: { id: route.params.id } })
+function goBack() {
+  router.push('/admin/super-admin/research')
+}
+function editResearch() {
+  router.push({ path: '/admin/super-admin/research/add_research', query: { id: route.params.id as string } })
+}
+
+/** Turn a published research back into a draft */
+async function unpublish() {
+  if (!research.value || busy.value) return
+  busy.value = true
+  try {
+    const id = route.params.id as string
+    await updateDoc(doc(db, 'researches', id), {
+      published: false,
+      publishedAt: null,
+      updatedAt: serverTimestamp(),
+    })
+    // reflect immediately
+    research.value.published = false
+    research.value.publishedAt = null
+  } catch (e) {
+    console.error(e)
+    alert('Failed to unpublish. Please try again.')
+  } finally {
+    busy.value = false
+  }
 }
 
 onMounted(() => {
@@ -179,5 +223,16 @@ onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
 <style scoped>
 .text-maroon { color: #740505; }
 .bg-maroon { background-color: #740505; }
-.border-maroon { border-color: #740505; }
+
+/* Outline pill that flips to maroon with white text on hover (ensures white text) */
+.btn-outline-maroon {
+  background-color: #ffffff;
+  border: 1px solid #740505;
+  color: #740505;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.btn-outline-maroon:hover {
+  background-color: #740505;
+  color: #ffffff !important;
+}
 </style>

@@ -1,25 +1,40 @@
+<!-- pages/admin/super-admin/downloads/[id].vue -->
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
-    <!-- Top bar: Back (left) + Edit (right) -->
-    <div class="flex items-center justify-between">
-      <!-- Back to list -->
+  <div class="mx-auto max-w-6xl px-4 py-10">
+    <!-- Top controls (upper-left) -->
+    <div class="mb-6 flex items-center gap-3">
       <UiButton
-        class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/downloads')"
+        variant="outline"
+        class="border-maroon text-maroon hover:bg-maroon hover:text-white"
+        @click="goBack"
+        type="button"
       >
-        ← Back to Downloads
+        Back to Downloads
       </UiButton>
 
-      <!-- Edit current item -->
+      <!-- If published => Unpublish, else Edit -->
       <UiButton
-        class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        @click="$router.push({ path: '/admin/super-admin/downloads/add_download', query: { id: route.params.id as string } })"
+        v-if="item?.published === true"
+        class="bg-maroon text-white hover:opacity-90"
+        :disabled="saving"
+        @click="unpublish"
+        type="button"
+      >
+        {{ saving ? 'Unpublishing…' : 'Unpublish' }}
+      </UiButton>
+
+      <UiButton
+        v-else
+        variant="outline"
+        class="border-maroon text-maroon hover:bg-maroon hover:text-white"
+        @click="edit"
+        type="button"
       >
         Edit
       </UiButton>
     </div>
 
-    <!-- Access control -->
+    <!-- Guard -->
     <div
       v-if="!loadingRole && !isSuperAdmin"
       class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
@@ -29,23 +44,20 @@
 
     <!-- Content -->
     <div v-else-if="docReady" class="space-y-4">
-      <!-- Title -->
       <h1 class="text-3xl font-bold text-maroon">{{ item?.title }}</h1>
 
-      <!-- Meta -->
       <p class="text-sm text-gray-600">
         By {{ item?.author || '—' }}
         <span class="text-gray-400">•</span>
-        {{ formatDate(item?.createdAt) }}
+        {{ formatDate(primaryDate(item)) }}
       </p>
 
-      <!-- Rich HTML (links open in new tab) -->
       <article class="prose max-w-none">
         <div v-html="externalizedLinks(item?.content)"></div>
       </article>
     </div>
 
-    <!-- Loading / not found -->
+    <!-- Loading -->
     <div v-else class="rounded border bg-white p-8 text-center text-gray-500">
       Loading…
     </div>
@@ -53,41 +65,44 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCurrentUser, useFirestore } from 'vuefire'
-import { doc, getDoc, Timestamp } from 'firebase/firestore'
-
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 
 const route = useRoute()
 const router = useRouter()
 const db = useFirestore()
 const currentUser = useCurrentUser()
 
-// ---------- access control ----------
+/* ---------- access control ---------- */
 const isSuperAdmin = ref(false)
 const loadingRole = ref(true)
+
 onMounted(async () => {
   if (!currentUser.value) return router.push('/login')
   try {
-    const userRef = doc(db, 'users', currentUser.value.uid)
-    const snap = await getDoc(userRef)
-    isSuperAdmin.value = snap.exists() && snap.data().role === 'Super Admin'
+    const uref = doc(db, 'users', currentUser.value.uid)
+    const snap = await getDoc(uref)
+    const role = (snap.exists() && (snap.data() as any).role) || ''
+    isSuperAdmin.value = String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
   } finally {
     loadingRole.value = false
   }
   if (isSuperAdmin.value) await fetchDoc()
 })
 
-// ---------- doc load ----------
+/* ---------- load doc ---------- */
 const item = ref<any>(null)
+const saving = ref(false)
 const docReady = computed(() => !!item.value)
+
 async function fetchDoc() {
   const id = String(route.params.id)
   const dref = doc(db, 'downloads', id)
@@ -96,28 +111,58 @@ async function fetchDoc() {
   item.value = { id, ...snap.data() }
 }
 
-function formatDate(ts?: Timestamp) {
+/* ---------- computed helpers ---------- */
+function asDate(v: any): Date | null {
+  if (!v) return null
+  if (typeof v?.toDate === 'function') return v.toDate() as Date
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+function primaryDate(it: any): Date | null {
+  return asDate(it?.createdAt) || asDate(it?.publishedAt) || asDate(it?.updatedAt)
+}
+function formatDate(d?: Date | Timestamp | null) {
+  const real = d && (d as Timestamp).toDate ? (d as Timestamp).toDate() : (d as Date)
+  if (!real) return '—'
+  return real.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: '2-digit' })
+}
+
+/* ---------- actions ---------- */
+function goBack() {
+  router.push('/admin/super-admin/downloads')
+}
+
+function edit() {
+  router.push({
+    path: '/admin/super-admin/downloads/add_download',
+    query: { id: String(route.params.id) },
+  })
+}
+
+async function unpublish() {
+  if (!item.value || saving.value) return
+  saving.value = true
   try {
-    if (!ts) return '—'
-    return ts.toDate().toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: '2-digit',
+    await updateDoc(doc(db, 'downloads', String(route.params.id)), {
+      published: false,
+      publishedAt: null,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentUser.value?.uid ?? null,
     })
-  } catch {
-    return '—'
+    router.push('/admin/super-admin/downloads')
+  } finally {
+    saving.value = false
   }
 }
 
-// Ensure stored HTML links open in a new tab + are safe-ish
+/* make all links open in new tab inside rich HTML */
 function externalizedLinks(html = '') {
   return html.replaceAll('<a ', '<a target="_blank" rel="noopener" ')
 }
 </script>
 
 <style scoped>
-/* Make links obviously clickable inside v-html content */
-:deep(.prose a) { cursor: pointer; text-decoration: underline; }
-.bg-maroon { background-color: #740505; }
 .text-maroon { color: #740505; }
+.bg-maroon   { background-color: #740505; }
+.border-maroon { border-color: #740505; }
 </style>
