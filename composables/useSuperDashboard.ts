@@ -19,6 +19,7 @@ import {
   Newspaper,
   CalendarFold,
   Download as DownloadIcon,
+  FlaskConical,
 } from 'lucide-vue-next'
 
 export function useSuperDashboard() {
@@ -70,7 +71,6 @@ export function useSuperDashboard() {
   }
 
   // ---------- Roles (robust counting) ----------
-  // Accept common variants so your counts match the table no matter how the role string was stored.
   const ROLE_VARIANTS: Record<string, string[]> = {
     'Super Admin': ['Super Admin', 'super_admin', 'super admin', 'super-admin'],
     'Head Admin' : ['Head Admin',  'head_admin',  'head admin',  'head-admin'],
@@ -80,13 +80,10 @@ export function useSuperDashboard() {
 
   async function countByRoleFlexible(roleKey: keyof typeof ROLE_VARIANTS): Promise<number> {
     const variants = ROLE_VARIANTS[roleKey]
-      .map(v => (typeof v === 'string' ? v : String(v)))
-      // de-dup and trim
       .map(v => v.trim())
       .filter((v, i, a) => v && a.indexOf(v) === i)
 
     try {
-      // Firestore "in" supports up to 10 values — we’re well within that.
       if (variants.length > 1) {
         const qRef = query(collection(db, 'users'), where('role', 'in', variants))
         return (await getCountFromServer(qRef)).data().count
@@ -95,14 +92,14 @@ export function useSuperDashboard() {
         return (await getCountFromServer(qRef)).data().count
       }
     } catch {
-      // Fallback: sum multiple equality queries (in case rules/indexes reject the 'in' query)
+      // fallback: sum separate equality queries
       try {
-        const counts = await Promise.all(
-          variants.map(async v => (await getCountFromServer(
-            query(collection(db, 'users'), where('role', '==', v))
-          )).data().count)
+        const parts = await Promise.all(
+          variants.map(async v =>
+            (await getCountFromServer(query(collection(db, 'users'), where('role', '==', v)))).data().count
+          )
         )
-        return counts.reduce((a, b) => a + b, 0)
+        return parts.reduce((a, b) => a + b, 0)
       } catch {
         return 0
       }
@@ -111,6 +108,7 @@ export function useSuperDashboard() {
 
   const roles = ref({ superAdmin: 0, headAdmin: 0, faculty: 0, mediaAdmin: 0 })
 
+  // existing bar adapter (kept for your RolesBar list)
   const rolesBar = computed(() => {
     const values = [roles.value.superAdmin, roles.value.headAdmin, roles.value.faculty, roles.value.mediaAdmin]
     const max = Math.max(1, ...values)
@@ -121,6 +119,14 @@ export function useSuperDashboard() {
       { label: 'Media Admin', value: roles.value.mediaAdmin, percent: Math.round((roles.value.mediaAdmin / max) * 100), color: 'bg-violet-600' },
     ]
   })
+
+  // 🔵 NEW: Pie/Donut adapter (labels + values + HEX colors for SVG)
+  const rolesDonutRows = computed(() => [
+    { label: 'Super Admin', value: roles.value.superAdmin, color: '#111827' }, // gray-900
+    { label: 'Head Admin',  value: roles.value.headAdmin,  color: '#0d9488' }, // teal-600
+    { label: 'Faculty',     value: roles.value.faculty,    color: '#0284c7' }, // sky-600
+    { label: 'Media Admin', value: roles.value.mediaAdmin, color: '#7c3aed' }, // violet-600
+  ])
 
   // ---------- Recent (createdAt only) ----------
   type FeedItem = {
@@ -175,7 +181,7 @@ export function useSuperDashboard() {
     { to: routes.news,        label: 'News',        icon: Newspaper,    color: 'text-amber-600',   ring: 'ring-amber-400/30 bg-amber-50' },
     { to: routes.events,      label: 'Events',      icon: CalendarFold, color: 'text-fuchsia-600', ring: 'ring-fuchsia-400/30 bg-fuchsia-50' },
     { to: routes.downloads,   label: 'Downloads',   icon: DownloadIcon, color: 'text-indigo-600',  ring: 'ring-indigo-400/30 bg-indigo-50' },
-    { to: routes.research,    label: 'Research',    icon: CalendarFold, color: 'text-rose-600',    ring: 'ring-rose-400/30 bg-rose-50' },
+    { to: routes.research,    label: 'Research',    icon: FlaskConical, color: 'text-rose-600',    ring: 'ring-rose-400/30 bg-rose-50' },
   ])
 
   // ---------- Fetch all ----------
@@ -216,7 +222,9 @@ export function useSuperDashboard() {
   }
 
   return {
+    // routes / state
     routes, resolveAllRoutes, stats, recent, fetchAll, loading, lastUpdated,
-    quickActions, rolesBar,
+    // UI datasets
+    quickActions, rolesBar, rolesDonutRows,
   }
 }

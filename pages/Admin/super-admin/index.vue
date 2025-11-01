@@ -16,27 +16,33 @@
       </button>
     </header>
 
-    <!-- Stat cards (same StatCard component) -->
+    <!-- Stat cards (reused StatCard component) -->
     <section>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <AdminStatCard :icon="User"        icon-color="text-sky-600"     ring="ring-sky-400/30 bg-sky-50"
-                       label="Accounts"     :value="stats.accounts"     :loading="loading" sub="All user roles" />
-
-        <AdminStatCard :icon="Building2"    icon-color="text-emerald-600" ring="ring-emerald-400/30 bg-emerald-50"
-                       label="Departments"  :value="stats.departments"   :loading="loading" sub="Active departments" />
-
-        <AdminStatCard :icon="Newspaper"    icon-color="text-amber-600"  ring="ring-amber-400/30 bg-amber-50"
-                       label="News (Published)" :value="stats.news"      :loading="loading" sub="Live articles" />
-
-        <AdminStatCard :icon="CalendarFold" icon-color="text-fuchsia-600" ring="ring-fuchsia-400/30 bg-fuchsia-50"
-                       label="Events"       :value="stats.events"        :loading="loading" sub="Total events" />
-
-        <AdminStatCard :icon="DownloadIcon" icon-color="text-indigo-600" ring="ring-indigo-400/30 bg-indigo-50"
-                       label="Downloads"    :value="stats.downloads"     :loading="loading" sub="Files available" />
+        <AdminStatCard
+          :icon="User" icon-color="text-sky-600" ring="ring-sky-400/30 bg-sky-50"
+          label="Accounts" :value="stats.accounts" :loading="loading" sub="All user roles"
+        />
+        <AdminStatCard
+          :icon="Building2" icon-color="text-emerald-600" ring="ring-emerald-400/30 bg-emerald-50"
+          label="Departments" :value="stats.departments" :loading="loading" sub="Active departments"
+        />
+        <AdminStatCard
+          :icon="Newspaper" icon-color="text-amber-600" ring="ring-amber-400/30 bg-amber-50"
+          label="News (Published)" :value="stats.news" :loading="loading" sub="Live articles"
+        />
+        <AdminStatCard
+          :icon="CalendarFold" icon-color="text-fuchsia-600" ring="ring-fuchsia-400/30 bg-fuchsia-50"
+          label="Events" :value="stats.events" :loading="loading" sub="Total events"
+        />
+        <AdminStatCard
+          :icon="DownloadIcon" icon-color="text-indigo-600" ring="ring-indigo-400/30 bg-indigo-50"
+          label="Downloads" :value="stats.downloads" :loading="loading" sub="Files available"
+        />
       </div>
     </section>
 
-    <!-- Quick actions (same QuickAction component) -->
+    <!-- Quick actions (reused QuickAction component) -->
     <section class="mt-8">
       <h2 class="mb-3 text-sm font-semibold text-gray-600">Quick actions</h2>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -44,30 +50,32 @@
       </div>
     </section>
 
-    <!-- Recent updates (same RecentList component) + Roles bar -->
+    <!-- Recent + Roles -->
     <section class="mt-8 grid gap-6 xl:grid-cols-3">
-      <AdminRecentList class="col-span-2"
-                       title="Recent updates"
-                       :items="recent"
-                       :loading="loading">
+      <!-- Recent updates (reused RecentList component) -->
+      <AdminRecentList
+        class="col-span-2"
+        title="Recent updates"
+        :items="recent"
+        :loading="loading"
+      >
         <template #action>
-          <NuxtLink :to="routes.news" class="text-sm font-medium text-maroon hover:underline">View all</NuxtLink>
+          <NuxtLink :to="routes.news" class="text-sm font-medium text-maroon hover:underline">
+            View all
+          </NuxtLink>
         </template>
       </AdminRecentList>
 
-      <!-- Simple roles bar kept inline (can be turned into a component later if you want) -->
-      <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 class="mb-4 text-base font-semibold text-gray-800">Accounts by role</h2>
-        <div v-for="row in rolesBar" :key="row.label" class="mb-3 last:mb-0">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-700">{{ row.label }}</span>
-            <span class="text-sm font-semibold text-gray-900">{{ row.value }}</span>
-          </div>
-          <div class="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-            <div class="h-full rounded-full" :class="row.color" :style="{ width: row.percent + '%' }"></div>
-          </div>
-        </div>
-      </div>
+      <!-- Roles visualization: Pie/Donut chart -->
+      <AdminPieDonut
+        title="Accounts by role"
+        :rows="rolesDonutRows"
+        :donut="true"
+        :thickness="42"
+        :showPercents="true"
+        :rounded-caps="true"
+        class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+      />
     </section>
 
     <p class="mt-6 text-xs text-gray-500">
@@ -84,16 +92,25 @@ definePageMeta({
 })
 
 import { onMounted } from 'vue'
-import { User, Building2, Newspaper, CalendarFold, Download as DownloadIcon } from 'lucide-vue-next'
+import {
+  User,
+  Building2,
+  Newspaper,
+  CalendarFold,
+  Download as DownloadIcon,
+} from 'lucide-vue-next'
 
+// Reused UI components
 import AdminStatCard from '@/components/Admin/StatCard.vue'
 import AdminQuickAction from '@/components/Admin/QuickAction.vue'
 import AdminRecentList from '@/components/Admin/RecentList.vue'
+import AdminPieDonut from '@/components/Admin/PieDonut.vue'
 
+// Super Admin data/composables
 import { useSuperDashboard } from '@/composables/useSuperDashboard'
 const {
   routes, resolveAllRoutes, stats, recent, fetchAll, loading, lastUpdated,
-  quickActions, rolesBar
+  quickActions, rolesDonutRows, // <-- use donut rows from composable
 } = useSuperDashboard()
 
 onMounted(async () => {
