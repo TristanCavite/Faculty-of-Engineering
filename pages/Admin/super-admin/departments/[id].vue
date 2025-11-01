@@ -201,10 +201,11 @@ import {
   addDoc,
 } from 'firebase/firestore';
 
-definePageMeta({
-  middleware: 'auth',
-  layout: 'super-admin',
-});
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['super_admin'],
+    layout: "super-admin",
+  });
 
 const db = getFirestore();
 const route = useRoute();

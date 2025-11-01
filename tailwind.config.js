@@ -170,5 +170,5 @@ module.exports = {
       }),
     },
   },
-  plugins: [animate, typography,forms],
+  plugins: [animate, typography, forms, require('@tailwindcss/aspect-ratio')],
 }

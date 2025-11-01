@@ -1,26 +1,125 @@
 <template>
-    <!-- Main Content -->
-    <main class="">
-      <header class="">
-        <span class="text-3xl font-bold">Admin Dashboard</span>
-        <div>
-          
-          <span class="text-sm text-gray-600">Supper Admin</span>
-        </div>
-      </header>
-      <section>
-        <p>Welcome to the Admin Dashboard. Select a section to manage.</p>
-      </section>
-    </main>
-  </template>
-  
-  <script setup>
+  <main class="p-6">
+    <!-- Header -->
+    <header class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+        <p class="text-sm text-gray-600">Super Admin</p>
+      </div>
+      <button
+        @click="fetchAll()"
+        :disabled="loading"
+        class="rounded-lg bg-maroon px-4 py-2 font-semibold text-white shadow hover:bg-maroon/90 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <span v-if="!loading">Refresh</span>
+        <span v-else>Updating…</span>
+      </button>
+    </header>
 
-// Apply middleware for authentication and role protection
+    <!-- Stat cards (reused StatCard component) -->
+    <section>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <AdminStatCard
+          :icon="User" icon-color="text-sky-600" ring="ring-sky-400/30 bg-sky-50"
+          label="Accounts" :value="stats.accounts" :loading="loading" sub="All user roles"
+        />
+        <AdminStatCard
+          :icon="Building2" icon-color="text-emerald-600" ring="ring-emerald-400/30 bg-emerald-50"
+          label="Departments" :value="stats.departments" :loading="loading" sub="Active departments"
+        />
+        <AdminStatCard
+          :icon="Newspaper" icon-color="text-amber-600" ring="ring-amber-400/30 bg-amber-50"
+          label="News (Published)" :value="stats.news" :loading="loading" sub="Live articles"
+        />
+        <AdminStatCard
+          :icon="CalendarFold" icon-color="text-fuchsia-600" ring="ring-fuchsia-400/30 bg-fuchsia-50"
+          label="Events" :value="stats.events" :loading="loading" sub="Total events"
+        />
+        <AdminStatCard
+          :icon="DownloadIcon" icon-color="text-indigo-600" ring="ring-indigo-400/30 bg-indigo-50"
+          label="Downloads" :value="stats.downloads" :loading="loading" sub="Files available"
+        />
+      </div>
+    </section>
+
+    <!-- Quick actions (reused QuickAction component) -->
+    <section class="mt-8">
+      <h2 class="mb-3 text-sm font-semibold text-gray-600">Quick actions</h2>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <AdminQuickAction v-for="a in quickActions" :key="a.to" v-bind="a" />
+      </div>
+    </section>
+
+    <!-- Recent + Roles -->
+    <section class="mt-8 grid gap-6 xl:grid-cols-3">
+      <!-- Recent updates (reused RecentList component) -->
+      <AdminRecentList
+        class="col-span-2"
+        title="Recent updates"
+        :items="recent"
+        :loading="loading"
+      >
+        <template #action>
+          <NuxtLink :to="routes.news" class="text-sm font-medium text-maroon hover:underline">
+            View all
+          </NuxtLink>
+        </template>
+      </AdminRecentList>
+
+      <!-- Roles visualization: Pie/Donut chart -->
+      <AdminPieDonut
+        title="Accounts by role"
+        :rows="rolesDonutRows"
+        :donut="true"
+        :thickness="42"
+        :showPercents="true"
+        :rounded-caps="true"
+        class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+      />
+    </section>
+
+    <p class="mt-6 text-xs text-gray-500">
+      Last updated: <span>{{ lastUpdated || '—' }}</span>
+    </p>
+  </main>
+</template>
+
+<script setup lang="ts">
 definePageMeta({
-  middleware: 'auth', // Protect this page
-  layout: "super-admin", // Optional: use specific layout
-});
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
+
+import { onMounted } from 'vue'
+import {
+  User,
+  Building2,
+  Newspaper,
+  CalendarFold,
+  Download as DownloadIcon,
+} from 'lucide-vue-next'
+
+// Reused UI components
+import AdminStatCard from '@/components/Admin/StatCard.vue'
+import AdminQuickAction from '@/components/Admin/QuickAction.vue'
+import AdminRecentList from '@/components/Admin/RecentList.vue'
+import AdminPieDonut from '@/components/Admin/PieDonut.vue'
+
+// Super Admin data/composables
+import { useSuperDashboard } from '@/composables/useSuperDashboard'
+const {
+  routes, resolveAllRoutes, stats, recent, fetchAll, loading, lastUpdated,
+  quickActions, rolesDonutRows, // <-- use donut rows from composable
+} = useSuperDashboard()
+
+onMounted(async () => {
+  resolveAllRoutes()
+  await fetchAll()
+})
 </script>
 
-  
+<style scoped>
+.bg-maroon { background-color: #7b1d20; }
+.text-maroon { color: #7b1d20; }
+</style>

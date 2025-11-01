@@ -1,0 +1,109 @@
+<template>
+  <div class="mx-auto max-w-4xl space-y-6">
+    <!-- Top bar: Back (left) + Edit (right) -->
+    <div class="flex items-center justify-between">
+      <!-- Back to list -->
+      <UiButton
+        class="bg-maroon text-white hover:opacity-90"
+        @click="$router.push('/Admin/media-admin/downloads')"
+      >
+        ← Back to Downloads
+      </UiButton>
+
+      <!-- Edit current item -->
+      <UiButton
+        class="border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+        @click="$router.push({ path: '/Admin/media-admin/downloads/add_download', query: { id: String(route.params.id) } })"
+      >
+        Edit
+      </UiButton>
+    </div>
+
+    <!-- Content -->
+    <div v-if="docReady" class="space-y-4">
+      <!-- Title -->
+      <h1 class="text-3xl font-bold text-maroon">{{ item?.title }}</h1>
+
+      <!-- Meta -->
+      <p class="text-sm text-gray-600">
+        By {{ item?.author || '—' }}
+        <span class="text-gray-400">•</span>
+        {{ formatDate(item?.createdAt) }}
+      </p>
+
+      <!-- Rich HTML (links open in new tab) -->
+      <article class="prose max-w-none">
+        <div v-html="externalizedLinks(item?.content)"></div>
+      </article>
+    </div>
+
+    <!-- Loading / not found -->
+    <div v-else class="rounded border bg-white p-8 text-center text-gray-500">
+      Loading…
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+/**
+ * Media Admin • Downloads • View by ID
+ * - Guarded by page meta (media_admin)
+ * - All navigations use /Admin/media-admin/... (capital A)
+ * - On missing doc, redirects back to the Media Admin downloads list
+ */
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useFirestore } from 'vuefire'
+import { doc, getDoc, Timestamp } from 'firebase/firestore'
+
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['media_admin'],
+  layout: 'media-admin',
+})
+
+const route = useRoute()
+const router = useRouter()
+const db = useFirestore()
+
+// ---------- doc load ----------
+const item = ref<any>(null)
+const docReady = computed(() => !!item.value)
+
+async function fetchDoc() {
+  const id = String(route.params.id)
+  const dref = doc(db, 'downloads', id)
+  const snap = await getDoc(dref)
+  if (!snap.exists()) {
+    return router.replace('/Admin/media-admin/downloads')
+  }
+  item.value = { id, ...snap.data() }
+}
+
+onMounted(fetchDoc)
+
+function formatDate(ts?: Timestamp) {
+  try {
+    if (!ts) return '—'
+    return ts.toDate().toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: '2-digit',
+    })
+  } catch {
+    return '—'
+  }
+}
+
+// Ensure stored HTML links open in a new tab + add noopener
+function externalizedLinks(html = '') {
+  return html.replaceAll('<a ', '<a target="_blank" rel="noopener" ')
+}
+</script>
+
+<style scoped>
+/* Make links obviously clickable inside v-html content */
+:deep(.prose a) { cursor: pointer; text-decoration: underline; }
+.bg-maroon { background-color: #740505; }
+.text-maroon { color: #740505; }
+</style>

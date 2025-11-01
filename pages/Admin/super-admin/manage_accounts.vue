@@ -125,7 +125,8 @@
   import { computed, onMounted, ref } from "vue";
 
   definePageMeta({
-    middleware: "auth",
+     middleware: ['auth'],
+     roles: ['super_admin'],
     layout: "super-admin",
   });
 
@@ -223,10 +224,3 @@
     }
   };
 </script>
-
-<style scoped>
-  /* Debug outlines (remove when done) */
-  * {
-    outline: 1px solid red;
-  }
-</style>

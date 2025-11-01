@@ -97,8 +97,9 @@
   const showAddModal = ref(false);
   const newDepartment = ref("");
   
-  definePageMeta({
-    middleware: "auth",
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['super_admin'],
     layout: "super-admin",
   });
   

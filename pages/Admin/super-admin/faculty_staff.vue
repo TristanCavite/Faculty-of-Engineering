@@ -155,11 +155,11 @@ import Search from "@/components/Icons/Search.vue";
 import ProfilePreviewModal from '@/components/ProfilePreviewModal.vue';
 import { UserPlus} from "lucide-vue-next";
 
-definePageMeta({
-  middleware: "auth",
-  layout: "super-admin",
-});
-
+ definePageMeta({
+     middleware: ['auth'],
+     roles: ['super_admin'],
+    layout: "super-admin",
+  });
 const db = getFirestore();
 
 const collegeDean = ref(null);
