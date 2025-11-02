@@ -22,98 +22,60 @@
     </div>
 
     <!-- List -->
-    <div v-if="filteredDownloads.length">
-      <!-- Grid -->
+    <template v-if="filteredDownloads.length">
+      <!-- GRID -->
       <div v-if="viewMode === 'grid'" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div
+        <ManageItem
           v-for="item in filteredDownloads"
           :key="item.id"
-          class="relative space-y-2 rounded border bg-white p-4 pt-8 shadow transition hover:shadow-md"
+          view="grid"
+          :to="`/admin/super-admin/downloads/${item.id}`"
+          :title="item.title"
+          :date="formatDate(primaryDate(item))"
+          :summary="composeSummary(item)"
+          :published="item.published === true"
+          deletable
+          @delete="confirmDelete(item)"
         >
-          <!-- delete -->
-          <button
-            class="absolute -right-2 -top-2 z-10 rounded-full bg-white/90 p-1 text-gray-500 shadow hover:text-red-600"
-            @click="confirmDelete(item)"
-            aria-label="Delete download"
-            type="button"
-          >
+          <template #delete-icon>
             <X class="h-4 w-4" />
-          </button>
+          </template>
 
-          <h2 class="text-xl font-bold text-maroon">{{ item.title }}</h2>
-
-          <div class="text-sm text-gray-500">
-            <span>By {{ item.author || 'Unknown' }}</span>
-            <span class="px-1">|</span>
-            <span>{{ formatDate(primaryDate(item)) }}</span>
-            <span
-              v-if="item.published !== true"
-              class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-            >Draft</span>
-          </div>
-
-          <p class="text-sm text-gray-700">
-            {{ previewText(item.content) }}
-          </p>
-
-          <UiButton
-            variant="outline"
-            class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
-            @click="readMore(item.id)"
-            type="button"
-          >
-            Read more...
-          </UiButton>
-        </div>
-      </div>
-
-      <!-- List (rows) -->
-      <ul v-else class="divide-y rounded border bg-white">
-        <li
-          v-for="item in filteredDownloads"
-          :key="item.id"
-          class="flex items-center gap-4 p-4"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <h3 class="truncate text-lg font-semibold text-maroon">{{ item.title }}</h3>
-              <span
-                v-if="item.published !== true"
-                class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-              >Draft</span>
-            </div>
-            <p class="text-xs text-gray-500">
-              By {{ item.author || 'Unknown' }} • {{ formatDate(primaryDate(item)) }}
-            </p>
-            <p class="mt-1 line-clamp-2 text-sm text-gray-700">
-              {{ previewText(item.content) }}
-            </p>
-          </div>
-
-          <!-- Actions (right side, same row): Read more … + X -->
-          <div class="flex shrink-0 items-center gap-2">
+          <!-- Footer button only in GRID (card already clickable) -->
+          <template #footer>
             <UiButton
-              size="sm"
               variant="outline"
               class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
-              @click="readMore(item.id)"
               type="button"
+              @click.stop="readMore(item.id)"
             >
               Read more...
             </UiButton>
-            <button
-              class="rounded-full p-1 text-gray-500 hover:text-red-600"
-              @click="confirmDelete(item)"
-              aria-label="Delete download"
-              type="button"
-              title="Delete"
-            >
-              <X class="h-4 w-4" />
-            </button>
-          </div>
-        </li>
+          </template>
+        </ManageItem>
+      </div>
+
+      <!-- LIST (no Read more button; X stays visible) -->
+      <ul v-else class="rounded-xl border bg-white divide-y">
+        <ManageItem
+          v-for="item in filteredDownloads"
+          :key="item.id"
+          view="list"
+          :to="`/admin/super-admin/downloads/${item.id}`"
+          :title="item.title"
+          :date="formatDate(primaryDate(item))"
+          :summary="composeSummary(item)"
+          :published="item.published === true"
+          deletable
+          @delete="confirmDelete(item)"
+        >
+          <template #delete-icon>
+            <X class="h-4 w-4" />
+          </template>
+          <!-- intentionally no #row-actions to hide 'Read more…' in list -->
+        </ManageItem>
       </ul>
-    </div>
+    </template>
 
     <!-- Empty -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
@@ -150,17 +112,12 @@ import {
   orderBy,
   query,
   type QueryDocumentSnapshot,
-  type Timestamp,
 } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import type { DocumentData } from 'firebase/firestore'
-
-import YearFilter from '@/components/YearFilter.vue'
-import StatusFilter from '@/components/StatusFilter.vue'
-import ViewModeToggle from '@/components/ViewModeToggle.vue'
 
 const db = useFirestore()
 const router = useRouter()
@@ -201,6 +158,12 @@ function previewText(html = '') {
     .replace(/\s+/g, ' ')
     .trim()
   return txt.length > 220 ? txt.slice(0, 220) + '…' : txt
+}
+/* Compose the summary to keep author visible */
+function composeSummary(it: any) {
+  const by = `By ${it.author || 'Unknown'}`
+  const prev = previewText(it.content || '')
+  return `${by} — ${prev}`
 }
 
 /* years (desc) */

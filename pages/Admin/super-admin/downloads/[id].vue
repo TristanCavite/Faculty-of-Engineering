@@ -4,8 +4,8 @@
     <!-- Top controls (upper-left) -->
     <div class="mb-6 flex items-center gap-3">
       <UiButton
-        variant="outline"
-        class="border-maroon text-maroon hover:bg-maroon hover:text-white"
+       variant="outline"
+            class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
         @click="goBack"
         type="button"
       >

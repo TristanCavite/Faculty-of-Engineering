@@ -21,67 +21,69 @@
       </div>
     </div>
 
-    <!-- Research list -->
-    <div
-      v-if="filteredResearches.length"
-      :class="viewMode === 'grid' ? 'grid gap-6 md:grid-cols-2 lg:grid-cols-3' : 'space-y-3'"
-    >
+    <!-- List -->
+    <template v-if="filteredResearches.length">
+      <!-- GRID -->
       <div
-        v-for="item in filteredResearches"
-        :key="item.id"
-        :class="cardClass"
+        v-if="viewMode === 'grid'"
+        id="research-list"
+        class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
-        <!-- delete -->
-        <button
-          class="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1 text-gray-500 shadow hover:text-red-600"
-          @click="confirmDelete(item)"
-          type="button"
+        <ManageItem
+          v-for="item in filteredResearches"
+          :key="item.id"
+          view="grid"
+          :to="`/admin/super-admin/research/${item.id}`"
+          :title="item.title"
+          :date="item.date"
+          :image="(item.coverImages && item.coverImages[0]) || undefined"
+          :summary="item.description || ''"
+          :badge="departmentName(item.departmentId) || undefined"
+          :published="item.published === true"
+          deletable
+          @delete="confirmDelete(item)"
         >
-          <X class="h-4 w-4" />
-        </button>
+          <template #delete-icon>
+            <X class="h-4 w-4" />
+          </template>
 
-        <!-- image -->
-        <img
-          v-if="item.coverImages?.length"
-          :src="item.coverImages[0]"
-          alt="Cover image"
-          :class="imageClass"
-        />
-
-        <!-- body -->
-        <div :class="viewMode === 'grid' ? '' : 'min-w-0 flex-1'">
-          <h2 class="truncate text-xl font-bold text-maroon">
-            {{ item.title }}
-          </h2>
-
-          <div class="text-sm text-gray-500">{{ formatDate(item.date) }}</div>
-
-          <div class="text-sm text-gray-700">
-            <div>
-              <span class="font-medium">Department:</span>
-              {{ departmentName(item.departmentId) || '—' }}
-            </div>
-            <div>
-              <span class="font-medium">Researchers:</span>
-              {{ item.researchers || '—' }}
-            </div>
-          </div>
-
-          <p v-if="viewMode === 'grid'" class="text-sm text-gray-700">
-            {{ item.description }}
-          </p>
-
-          <UiButton
-            variant="outline"
-            class="border-maroon text-maroon hover:bg-maroon hover:text-white"
-            @click="readMore(item.id)"
-            type="button"
-          >
-            Read more...
-          </UiButton>
-        </div>
+          <!-- Footer button ONLY in GRID -->
+          <template #footer>
+            <UiButton
+              variant="outline"
+              class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
+              type="button"
+              @click.stop="readMore(item.id)"
+            >
+              Read more...
+            </UiButton>
+          </template>
+        </ManageItem>
       </div>
-    </div>
+
+      <!-- LIST (no Read more button; keep X visible) -->
+      <ul v-else id="research-list" class="rounded-xl border bg-white divide-y">
+        <ManageItem
+          v-for="item in filteredResearches"
+          :key="item.id"
+          view="list"
+          :to="`/admin/super-admin/research/${item.id}`"
+          :title="item.title"
+          :date="item.date"
+          :image="(item.coverImages && item.coverImages[0]) || undefined"
+          :summary="composeSummary(item)"
+          :badge="departmentName(item.departmentId) || undefined"
+          :published="item.published === true"
+          deletable
+          @delete="confirmDelete(item)"
+        >
+          <template #delete-icon>
+            <X class="h-4 w-4" />
+          </template>
+          <!-- Intentionally no #row-actions to hide Read more in list -->
+        </ManageItem>
+      </ul>
+    </template>
 
     <!-- Empty -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
@@ -125,39 +127,26 @@ import {
 } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
 
-import YearFilter from '@/components/YearFilter.vue'
-import StatusFilter from '@/components/StatusFilter.vue'
-import ViewModeToggle from '@/components/ViewModeToggle.vue'
-
 const db = useFirestore()
 const router = useRouter()
 
+/* state */
 const researches = ref<any[]>([])
 const selectedResearch = ref<any>(null)
 const showDeleteModal = ref(false)
 
-/** Filters */
+/* filters */
 const selectedYear = ref<string>('all')
 const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
-const viewMode = ref<'grid' | 'list'>('grid') // ← View mode
+const viewMode = ref<'grid' | 'list'>('grid')
 
-/** Department ID -> Name map */
+/* department map */
 const departmentNames = ref<Record<string, string>>({})
 function departmentName(id?: string) {
   return (id && departmentNames.value[id]) || ''
 }
 
-/** Available years for YearFilter */
-const availableYears = computed(() => {
-  const years = new Set<number>()
-  researches.value.forEach((item) => {
-    const d = item?.date ? new Date(item.date) : null
-    if (d && !Number.isNaN(d.getTime())) years.add(d.getFullYear())
-  })
-  return Array.from(years).sort((a, b) => b - a)
-})
-
-/** Load researches + departments */
+/* load */
 onMounted(async () => {
   const qRef = query(collection(db, 'researches'), orderBy('date', 'desc'))
   const [researchSnap, deptSnap] = await Promise.all([
@@ -178,7 +167,17 @@ onMounted(async () => {
   departmentNames.value = map
 })
 
-/** Filtering: first by status, then by year */
+/* years */
+const availableYears = computed(() => {
+  const years = new Set<number>()
+  researches.value.forEach((item) => {
+    const d = item?.date ? new Date(item.date) : null
+    if (d && !Number.isNaN(d.getTime())) years.add(d.getFullYear())
+  })
+  return Array.from(years).sort((a, b) => b - a)
+})
+
+/* filters: status -> year */
 const listByStatus = computed(() => {
   if (selectedStatus.value === 'all') return researches.value
   return researches.value.filter((it) =>
@@ -194,25 +193,17 @@ const filteredResearches = computed(() => {
   })
 })
 
-/** Classes that depend on view mode */
-const cardClass = computed(() =>
-  viewMode.value === 'grid'
-    ? 'relative space-y-2 rounded border bg-white p-4 pt-8 shadow transition hover:shadow-md'
-    : 'relative flex items-start gap-4 rounded border bg-white p-4 shadow'
-)
-const imageClass = computed(() =>
-  viewMode.value === 'grid'
-    ? 'h-48 w-full rounded object-cover'
-    : 'h-24 w-32 flex-shrink-0 rounded object-cover'
-)
+/* helpers */
+function composeSummary(it: any) {
+  const dept = departmentName(it.departmentId)
+  const res = it.researchers ? `Researchers: ${it.researchers}` : ''
+  const desc = it.description || ''
+  return [dept ? `Department: ${dept}` : '', res, desc].filter(Boolean).join(' • ')
+}
 
-/** Actions */
+/* actions */
 function readMore(id: string) {
   router.push(`/admin/super-admin/research/${id}`)
-}
-function formatDate(iso: string) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 function confirmDelete(item: any) {
   selectedResearch.value = item
