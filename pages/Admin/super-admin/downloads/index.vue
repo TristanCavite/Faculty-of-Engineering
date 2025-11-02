@@ -12,21 +12,36 @@
       </UiButton>
     </div>
 
-    <!-- Filters + View mode -->
+    <!-- Filters + Search + View mode -->
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div class="flex flex-wrap items-center gap-3">
         <YearFilter v-model="selectedYear" :years="availableYears" />
         <StatusFilter v-model="selectedStatus" />
       </div>
-      <ViewModeToggle v-model="viewMode" />
+      <div class="flex items-center gap-3">
+        <ManageSearchBar v-model:query="searchQuery" placeholder="Search downloads…" />
+        <ViewModeToggle v-model="viewMode" />
+      </div>
     </div>
 
-    <!-- List -->
-    <template v-if="filteredDownloads.length">
-      <!-- GRID -->
+    <!-- ============== SKELETONS WHILE LOADING ============== -->
+    <template v-if="isLoading">
+      <!-- Grid skeletons -->
       <div v-if="viewMode === 'grid'" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="grid" />
+      </div>
+      <!-- List skeletons -->
+      <ul v-else class="rounded-xl border bg-white divide-y">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="list" />
+      </ul>
+    </template>
+
+    <!-- ============== CONTENT (after search) ============== -->
+    <template v-else-if="searchedDownloads.length">
+      <!-- GRID -->
+      <div v-if="viewMode === 'grid'" id="downloads-list" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ManageItem
-          v-for="item in filteredDownloads"
+          v-for="item in searchedDownloads"
           :key="item.id"
           view="grid"
           :to="`/admin/super-admin/downloads/${item.id}`"
@@ -37,9 +52,7 @@
           deletable
           @delete="confirmDelete(item)"
         >
-          <template #delete-icon>
-            <X class="h-4 w-4" />
-          </template>
+          <template #delete-icon><X class="h-4 w-4" /></template>
 
           <!-- Footer button only in GRID (card already clickable) -->
           <template #footer>
@@ -56,9 +69,9 @@
       </div>
 
       <!-- LIST (no Read more button; X stays visible) -->
-      <ul v-else class="rounded-xl border bg-white divide-y">
+      <ul v-else id="downloads-list" class="rounded-xl border bg-white divide-y">
         <ManageItem
-          v-for="item in filteredDownloads"
+          v-for="item in searchedDownloads"
           :key="item.id"
           view="list"
           :to="`/admin/super-admin/downloads/${item.id}`"
@@ -69,15 +82,17 @@
           deletable
           @delete="confirmDelete(item)"
         >
-          <template #delete-icon>
-            <X class="h-4 w-4" />
-          </template>
-          <!-- intentionally no #row-actions to hide 'Read more…' in list -->
+          <template #delete-icon><X class="h-4 w-4" /></template>
         </ManageItem>
       </ul>
     </template>
 
-    <!-- Empty -->
+    <!-- ============== NO MATCHES (search active, data exists) ============== -->
+    <div v-else-if="filteredDownloads.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+      No matches for your search.
+    </div>
+
+    <!-- ============== EMPTY ============== -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
       No downloads yet. Click “+ Add Download” to create your first entry.
     </div>
@@ -114,10 +129,14 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import type { DocumentData } from 'firebase/firestore'
+
+import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
+import ManageSearchBar from '@/components/ManageSearchBar.vue'
+import { useSearch, buildKeyMatcher } from '@/composables/useSearch'
 
 const db = useFirestore()
 const router = useRouter()
@@ -126,11 +145,25 @@ const router = useRouter()
 const downloads = ref<any[]>([])
 const selectedDownload = ref<any>(null)
 const showDeleteModal = ref(false)
+/* loading flag for skeletons */
+const isLoading = ref(true)
 
 /* filters */
 const selectedYear = ref<string>('all')
 const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
 const viewMode = ref<'grid' | 'list'>('grid')
+
+/* search */
+const searchQuery = ref('')
+// Search typical fields for downloads
+const downloadMatcher = buildKeyMatcher<any>([
+  'title',
+  'author',
+  'description',
+  'content',
+  'fileName',
+  'tags',
+])
 
 /* utils */
 function asDate(v: any): Date | null {
@@ -178,12 +211,16 @@ const availableYears = computed(() => {
 
 /* load */
 onMounted(async () => {
-  const qRef = query(collection(db, 'downloads'), orderBy('createdAt', 'desc'))
-  const snap = await getDocs(qRef)
-  downloads.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
-    id: d.id,
-    ...d.data(),
-  }))
+  try {
+    const qRef = query(collection(db, 'downloads'), orderBy('createdAt', 'desc'))
+    const snap = await getDocs(qRef)
+    downloads.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+      id: d.id,
+      ...d.data(),
+    }))
+  } finally {
+    isLoading.value = false // ALWAYS end loading to hide skeletons
+  }
 })
 
 /* filters */
@@ -202,6 +239,9 @@ const filteredDownloads = computed(() => {
   })
 })
 
+/* search on top of filters */
+const searchedDownloads = useSearch(computed(() => filteredDownloads.value), searchQuery, downloadMatcher)
+
 /* actions */
 function readMore(id: string) {
   router.push(`/admin/super-admin/downloads/${id}`)
@@ -217,6 +257,11 @@ async function deleteDownload() {
   selectedDownload.value = null
   showDeleteModal.value = false
 }
+
+/* UX: scroll to list on filter/view changes (avoid jumping while typing search) */
+watch([selectedYear, selectedStatus, viewMode], () => {
+  document.getElementById('downloads-list')?.scrollIntoView({ behavior: 'smooth' })
+})
 </script>
 
 <style scoped>

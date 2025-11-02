@@ -12,17 +12,28 @@
       </UiButton>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters + Search + View -->
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
       <YearFilter v-model="selectedYear" :years="availableYears" />
       <StatusFilter v-model="selectedStatus" />
-      <div class="md:ml-auto">
+      <div class="md:ml-auto flex items-center gap-3">
+        <ManageSearchBar v-model:query="searchQuery" placeholder="Search research…" />
         <ViewModeToggle v-model="viewMode" />
       </div>
     </div>
 
-    <!-- List -->
-    <template v-if="filteredResearches.length">
+    <!-- ============== SKELETONS WHILE LOADING ============== -->
+    <template v-if="isLoading">
+      <div v-if="viewMode === 'grid'" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="grid" />
+      </div>
+      <ul v-else id="research-list" class="rounded-xl border bg-white divide-y">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="list" />
+      </ul>
+    </template>
+
+    <!-- ============== CONTENT (after search) ============== -->
+    <template v-else-if="searchedResearches.length">
       <!-- GRID -->
       <div
         v-if="viewMode === 'grid'"
@@ -30,7 +41,7 @@
         class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
         <ManageItem
-          v-for="item in filteredResearches"
+          v-for="item in searchedResearches"
           :key="item.id"
           view="grid"
           :to="`/admin/super-admin/research/${item.id}`"
@@ -64,7 +75,7 @@
       <!-- LIST (no Read more button; keep X visible) -->
       <ul v-else id="research-list" class="rounded-xl border bg-white divide-y">
         <ManageItem
-          v-for="item in filteredResearches"
+          v-for="item in searchedResearches"
           :key="item.id"
           view="list"
           :to="`/admin/super-admin/research/${item.id}`"
@@ -80,12 +91,16 @@
           <template #delete-icon>
             <X class="h-4 w-4" />
           </template>
-          <!-- Intentionally no #row-actions to hide Read more in list -->
         </ManageItem>
       </ul>
     </template>
 
-    <!-- Empty -->
+    <!-- ============== NO MATCHES (search active, data exists) ============== -->
+    <div v-else-if="filteredResearches.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+      No matches for your search.
+    </div>
+
+    <!-- ============== EMPTY (no data at all) ============== -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
       No researches yet. Click “+ Add Research” to create your first one.
     </div>
@@ -112,7 +127,7 @@ definePageMeta({
   layout: 'super-admin',
 })
 
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import {
@@ -126,6 +141,9 @@ import {
   type DocumentData,
 } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
+import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
+import ManageSearchBar from '@/components/ManageSearchBar.vue'
+import { useSearch, buildKeyMatcher, normalize } from '@/composables/useSearch'
 
 const db = useFirestore()
 const router = useRouter()
@@ -134,6 +152,7 @@ const router = useRouter()
 const researches = ref<any[]>([])
 const selectedResearch = ref<any>(null)
 const showDeleteModal = ref(false)
+const isLoading = ref(true)
 
 /* filters */
 const selectedYear = ref<string>('all')
@@ -146,25 +165,42 @@ function departmentName(id?: string) {
   return (id && departmentNames.value[id]) || ''
 }
 
+/* search */
+const searchQuery = ref('')
+// match base fields on research docs
+const baseMatcher = buildKeyMatcher<any>(['title', 'description', 'researchers'])
+// include department name in the haystack
+const researchMatcher = (item: any, q: string) => {
+  const baseOk = baseMatcher(item, q)
+  const deptHay = normalize(departmentName(item.departmentId))
+  const tokens = q.split(' ').filter(Boolean)
+  const deptOk = tokens.length ? tokens.every(t => deptHay.includes(t)) : true
+  return baseOk || deptOk
+}
+
 /* load */
 onMounted(async () => {
-  const qRef = query(collection(db, 'researches'), orderBy('date', 'desc'))
-  const [researchSnap, deptSnap] = await Promise.all([
-    getDocs(qRef),
-    getDocs(collection(db, 'departments')),
-  ])
+  try {
+    const qRef = query(collection(db, 'researches'), orderBy('date', 'desc'))
+    const [researchSnap, deptSnap] = await Promise.all([
+      getDocs(qRef),
+      getDocs(collection(db, 'departments')),
+    ])
 
-  researches.value = researchSnap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
-    id: d.id,
-    ...d.data(),
-  }))
+    researches.value = researchSnap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+      id: d.id,
+      ...d.data(),
+    }))
 
-  const map: Record<string, string> = {}
-  deptSnap.docs.forEach((d) => {
-    const data: any = d.data()
-    map[d.id] = data?.name ?? data?.departmentName ?? data?.title ?? 'Unnamed Department'
-  })
-  departmentNames.value = map
+    const map: Record<string, string> = {}
+    deptSnap.docs.forEach((d) => {
+      const data: any = d.data()
+      map[d.id] = data?.name ?? data?.departmentName ?? data?.title ?? 'Unnamed Department'
+    })
+    departmentNames.value = map
+  } finally {
+    isLoading.value = false
+  }
 })
 
 /* years */
@@ -193,6 +229,9 @@ const filteredResearches = computed(() => {
   })
 })
 
+/* search on top of filters */
+const searchedResearches = useSearch(computed(() => filteredResearches.value), searchQuery, researchMatcher)
+
 /* helpers */
 function composeSummary(it: any) {
   const dept = departmentName(it.departmentId)
@@ -216,6 +255,11 @@ async function deleteResearch() {
   selectedResearch.value = null
   showDeleteModal.value = false
 }
+
+/* UX: scroll to list on change (exclude search to avoid jump while typing) */
+watch([selectedYear, selectedStatus, viewMode], () => {
+  document.getElementById('research-list')?.scrollIntoView({ behavior: 'smooth' })
+})
 </script>
 
 <style scoped>

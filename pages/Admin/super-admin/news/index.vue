@@ -11,17 +11,29 @@
       </UiButton>
     </div>
 
-    <!-- Filters + View toggle -->
+    <!-- Filters + Search + View toggle -->
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
       <YearFilter v-model="selectedYear" :years="availableYears" />
       <StatusFilter v-model="selectedStatus" />
-      <div class="md:ml-auto">
+      <div class="md:ml-auto flex items-center gap-3">
+        <!-- Shared search bar (debounced v-model) -->
+        <ManageSearchBar v-model:query="searchQuery" placeholder="Search news…" />
         <ViewModeToggle v-model="viewMode" />
       </div>
     </div>
 
-    <!-- Content -->
-    <template v-if="filteredNews.length">
+    <!-- ============== SKELETONS WHILE LOADING ============== -->
+    <template v-if="isLoading">
+      <div v-if="viewMode === 'grid'" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="grid" />
+      </div>
+      <ul v-else class="rounded-xl border bg-white divide-y">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="list" />
+      </ul>
+    </template>
+
+    <!-- ============== CONTENT (after search) ============== -->
+    <template v-else-if="searchedNews.length">
       <!-- GRID -->
       <div
         v-if="viewMode === 'grid'"
@@ -29,7 +41,7 @@
         class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
         <ManageItem
-          v-for="item in filteredNews"
+          v-for="item in searchedNews"
           :key="item.id"
           view="grid"
           :to="`/admin/super-admin/news/${item.id}`"
@@ -41,9 +53,7 @@
           deletable
           @delete="confirmDelete(item)"
         >
-          <template #delete-icon>
-            <X class="h-4 w-4" />
-          </template>
+          <template #delete-icon><X class="h-4 w-4" /></template>
 
           <!-- Footer button only in GRID -->
           <template #footer>
@@ -60,10 +70,9 @@
       </div>
 
       <!-- LIST -->
-      <!-- removed overflow-hidden so the X pill isn’t clipped -->
       <ul v-else id="news-list" class="rounded-xl border bg-white divide-y">
         <ManageItem
-          v-for="item in filteredNews"
+          v-for="item in searchedNews"
           :key="item.id"
           view="list"
           :to="`/admin/super-admin/news/${item.id}`"
@@ -75,16 +84,17 @@
           deletable
           @delete="confirmDelete(item)"
         >
-          <template #delete-icon>
-            <X class="h-4 w-4" />
-          </template>
-
-          <!-- No #row-actions => no Read more button in LIST -->
+          <template #delete-icon><X class="h-4 w-4" /></template>
         </ManageItem>
       </ul>
     </template>
 
-    <!-- Empty -->
+    <!-- ============== NO MATCHES (search active, data exists) ============== -->
+    <div v-else-if="filteredNews.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+      No matches for your search.
+    </div>
+
+    <!-- ============== EMPTY (no data at all) ============== -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
       No news items yet. Click “+ Add News” to create your first post.
     </div>
@@ -114,8 +124,14 @@ definePageMeta({
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
-import { collection, getDocs, doc, deleteDoc, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore'
+import {
+  collection, getDocs, doc, deleteDoc,
+  orderBy, query, type QueryDocumentSnapshot, type DocumentData
+} from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
+import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
+import ManageSearchBar from '@/components/ManageSearchBar.vue'
+import { useSearch, buildKeyMatcher } from '@/composables/useSearch'
 
 const db = useFirestore()
 const router = useRouter()
@@ -124,6 +140,7 @@ const router = useRouter()
 const news = ref<any[]>([])
 const selectedNews = ref<any>(null)
 const showDeleteModal = ref(false)
+const isLoading = ref(true)
 
 /* filters */
 const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
@@ -133,13 +150,23 @@ const selectedYear = ref<string>('all')
 type ViewMode = 'grid' | 'list'
 const viewMode = ref<ViewMode>('grid')
 
+/* search */
+const searchQuery = ref('')
+// Search across typical fields: title, description, and content (if stored)
+const newsMatcher = buildKeyMatcher<any>(['title', 'description', 'content'])
+
 /* load */
 onMounted(async () => {
-  const snap = await getDocs(collection(db, 'news'))
-  news.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
-    id: d.id,
-    ...d.data(),
-  }))
+  try {
+    const qRef = query(collection(db, 'news'), orderBy('createdAt', 'desc'))
+    const snap = await getDocs(qRef)
+    news.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+      id: d.id,
+      ...d.data(),
+    }))
+  } finally {
+    isLoading.value = false
+  }
 })
 
 /* years for YearFilter (desc) */
@@ -152,7 +179,7 @@ const availableYears = computed(() => {
   return Array.from(years).sort((a, b) => b - a)
 })
 
-/* filtered list */
+/* filtered list (status + year) */
 const filteredNews = computed(() => {
   return news.value.filter((item) => {
     const d = item?.createdAt?.toDate?.() as Date | undefined
@@ -162,6 +189,9 @@ const filteredNews = computed(() => {
     return yearOk && statusOk
   })
 })
+
+/* search on top of filters */
+const searchedNews = useSearch(computed(() => filteredNews.value), searchQuery, newsMatcher)
 
 /* actions */
 function readMore(id: string) {
@@ -179,7 +209,7 @@ async function deleteNews() {
   showDeleteModal.value = false
 }
 
-/* UX: scroll to list on change */
+/* UX: scroll to list on change (exclude search to avoid jump while typing) */
 watch([selectedStatus, selectedYear, viewMode], () => {
   document.getElementById('news-list')?.scrollIntoView({ behavior: 'smooth' })
 })

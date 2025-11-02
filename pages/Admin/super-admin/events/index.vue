@@ -12,18 +12,32 @@
       </UiButton>
     </div>
 
-    <!-- Filters + View toggle -->
+    <!-- Filters + Search + View toggle -->
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
       <YearFilter v-model="selectedYear" :years="availableYears" />
       <EventFilter v-model="selectedType" />
       <StatusFilter v-model="selectedStatus" />
-      <div class="md:ml-auto">
+      <div class="md:ml-auto flex items-center gap-3">
+        <!-- Shared search bar (debounced v-model) -->
+        <ManageSearchBar v-model:query="searchQuery" placeholder="Search events…" />
         <ViewModeToggle v-model="viewMode" />
       </div>
     </div>
 
-    <!-- Content -->
-    <template v-if="filteredEvents.length">
+    <!-- ================= LOADING SKELETONS ================= -->
+    <template v-if="isLoading">
+      <!-- Grid skeletons -->
+      <div v-if="viewMode === 'grid'" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="grid" />
+      </div>
+      <!-- List skeletons -->
+      <ul v-else class="divide-y rounded-xl border bg-white">
+        <ManageItemSkeleton v-for="i in 6" :key="i" view="list" />
+      </ul>
+    </template>
+
+    <!-- ================= CONTENT (after search) ================= -->
+    <template v-else-if="searchedEvents.length">
       <!-- GRID -->
       <div
         v-if="viewMode === 'grid'"
@@ -31,7 +45,7 @@
         class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
         <ManageItem
-          v-for="item in filteredEvents"
+          v-for="item in searchedEvents"
           :key="item.id"
           view="grid"
           :to="toEvent(item.id)"
@@ -65,7 +79,7 @@
       <!-- LIST -->
       <ul v-else id="events-list" class="divide-y rounded-xl border bg-white">
         <ManageItem
-          v-for="item in filteredEvents"
+          v-for="item in searchedEvents"
           :key="item.id"
           view="list"
           :to="toEvent(item.id)"
@@ -81,13 +95,16 @@
           <template #delete-icon>
             <X class="h-4 w-4" />
           </template>
-
-          <!-- ❌ Removed the #row-actions slot so no Read more button in list view -->
         </ManageItem>
       </ul>
     </template>
 
-    <!-- Empty -->
+    <!-- ================= NO MATCHES (search active, data exists) ================= -->
+    <div v-else-if="filteredEvents.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+      No matches for your search.
+    </div>
+
+    <!-- ================= EMPTY (no data at all) ================= -->
     <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
       No events yet. Click “+ Add Event” to create your first one.
     </div>
@@ -97,8 +114,7 @@
       <template #header>Delete Event</template>
       <template #default>
         Are you sure you want to delete
-        <span class="font-semibold text-maroon">{{ selectedEvent?.title }}</span
-        >?
+        <span class="font-semibold text-maroon">{{ selectedEvent?.title }}</span>?
       </template>
       <template #footer>
         <UiButton class="bg-gray-200" @click="showDeleteModal = false">Cancel</UiButton>
@@ -109,141 +125,149 @@
 </template>
 
 <script setup lang="ts">
-  import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
-  import { X } from "lucide-vue-next";
-  import { computed, onMounted, ref, watch } from "vue";
-  import { useRouter } from "vue-router";
-  import { useFirestore } from "vuefire";
-  import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
+import { X } from "lucide-vue-next";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useFirestore } from "vuefire";
+import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 
-  definePageMeta({
-    middleware: ["auth"],
-    roles: ["super_admin"],
-    layout: "super-admin",
+import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
+import ManageSearchBar from '@/components/ManageSearchBar.vue' // <- you said you placed it here
+import { useSearch, buildKeyMatcher } from '@/composables/useSearch'
+
+definePageMeta({
+  middleware: ["auth"],
+  roles: ["super_admin"],
+  layout: "super-admin",
+});
+
+const db = useFirestore();
+const router = useRouter();
+
+const events = ref<any[]>([]);
+const selectedEvent = ref<any>(null);
+const showDeleteModal = ref(false);
+
+/** Loading flag for skeletons */
+const isLoading = ref(true);
+
+/** Filters */
+const selectedYear = ref<string>("all");
+const selectedType = ref<string>("all");
+const selectedStatus = ref<"all" | "published" | "draft">("all");
+
+/** View mode */
+type ViewMode = "grid" | "list";
+const viewMode = ref<ViewMode>("grid");
+
+/** Search (shared UI + generic engine) */
+const searchQuery = ref('');
+// match across title, description, eventType, tags
+const eventMatcher = buildKeyMatcher<any>(['title', 'description', 'eventType', 'tags']);
+
+/** Available years for YearFilter */
+const availableYears = computed(() => {
+  const years = new Set<number>();
+  events.value.forEach((item) => {
+    const d = item?.date ? new Date(item.date) : null;
+    if (d && !Number.isNaN(d.getTime())) years.add(d.getFullYear());
   });
+  return Array.from(years).sort((a, b) => b - a);
+});
 
-  const db = useFirestore();
-  const router = useRouter();
-
-  const events = ref<any[]>([]);
-  const selectedEvent = ref<any>(null);
-  const showDeleteModal = ref(false);
-
-  /** Filters */
-  const selectedYear = ref<string>("all");
-  const selectedType = ref<string>("all");
-  const selectedStatus = ref<"all" | "published" | "draft">("all");
-
-  /** View mode */
-  type ViewMode = "grid" | "list";
-  const viewMode = ref<ViewMode>("grid");
-
-  /** Available years for YearFilter */
-  const availableYears = computed(() => {
-    const years = new Set<number>();
-    events.value.forEach((item) => {
-      const d = item?.date ? new Date(item.date) : null;
-      if (d && !Number.isNaN(d.getTime())) years.add(d.getFullYear());
-    });
-    return Array.from(years).sort((a, b) => b - a);
-  });
-
-  onMounted(async () => {
+onMounted(async () => {
+  try {
     const q = query(collection(db, "events"), orderBy("date", "desc"));
     const snap = await getDocs(q);
     events.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
       id: d.id,
       ...d.data(),
     }));
+  } finally {
+    isLoading.value = false; // hide skeletons when fetch completes
+  }
+});
+
+/** Helpers */
+function normalizeType(v: any) {
+  if (!v && v !== 0) return "";
+  return String(v)
+    .toLowerCase()
+    .trim()
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+const normalizedType = (item: any) => {
+  const t = normalizeType(item?.eventType);
+  if (!t || t === "all") return "";
+  return t
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
+};
+
+const toEvent = (id: string) => `/admin/super-admin/events/${id}`;
+const firstImage = (it: any) => (it?.coverImages?.length ? it.coverImages[0] : null);
+
+/** Filtering pipeline: type -> year -> status */
+const listByType = computed(() =>
+  selectedType.value === "all"
+    ? events.value
+    : events.value.filter((e) => normalizeType(e.eventType) === selectedType.value)
+);
+
+const filteredEvents = computed(() => {
+  return listByType.value.filter((it) => {
+    const yearOk =
+      selectedYear.value === "all"
+        ? true
+        : (() => {
+            const d = it?.date ? new Date(it.date) : null;
+            return (
+              d && !Number.isNaN(d.getTime()) && d.getFullYear() === Number(selectedYear.value)
+            );
+          })();
+
+    const status = it.published === true ? "published" : "draft";
+    const statusOk = selectedStatus.value === "all" || selectedStatus.value === status;
+
+    return yearOk && statusOk;
   });
+});
 
-  /** Helpers */
-  function normalizeType(v: any) {
-    if (!v && v !== 0) return "";
-    return String(v)
-      .toLowerCase()
-      .trim()
-      .replace(/[_\s]+/g, "-")
-      .replace(/[^a-z0-9-]/g, "");
-  }
-  const normalizedType = (item: any) => {
-    const t = normalizeType(item?.eventType);
-    if (!t || t === "all") return "";
-    return t
-      .split("-")
-      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join(" ");
-  };
+/** Search on top of filters */
+const searchedEvents = useSearch(computed(() => filteredEvents.value), searchQuery, eventMatcher);
 
-  const toEvent = (id: string) => `/admin/super-admin/events/${id}`;
-  const firstImage = (it: any) => (it?.coverImages?.length ? it.coverImages[0] : null);
+/** Actions */
+function readMore(id: string) { router.push(toEvent(id)); }
+function confirmDelete(item: any) { selectedEvent.value = item; showDeleteModal.value = true; }
+async function deleteEvent() {
+  if (!selectedEvent.value) return;
+  await deleteDoc(doc(db, "events", selectedEvent.value.id));
+  events.value = events.value.filter((e) => e.id !== selectedEvent.value.id);
+  selectedEvent.value = null;
+  showDeleteModal.value = false;
+}
 
-  /** Filtering pipeline: type -> year -> status */
-  const listByType = computed(() =>
-    selectedType.value === "all"
-      ? events.value
-      : events.value.filter((e) => normalizeType(e.eventType) === selectedType.value)
-  );
-
-  const filteredEvents = computed(() => {
-    return listByType.value.filter((it) => {
-      const yearOk =
-        selectedYear.value === "all"
-          ? true
-          : (() => {
-              const d = it?.date ? new Date(it.date) : null;
-              return (
-                d && !Number.isNaN(d.getTime()) && d.getFullYear() === Number(selectedYear.value)
-              );
-            })();
-
-      const status = it.published === true ? "published" : "draft";
-      const statusOk = selectedStatus.value === "all" || selectedStatus.value === status;
-
-      return yearOk && statusOk;
-    });
-  });
-
-  /** Actions */
-  function readMore(id: string) {
-    router.push(toEvent(id));
-  }
-  function confirmDelete(item: any) {
-    selectedEvent.value = item;
-    showDeleteModal.value = true;
-  }
-  async function deleteEvent() {
-    if (!selectedEvent.value) return;
-    await deleteDoc(doc(db, "events", selectedEvent.value.id));
-    events.value = events.value.filter((e) => e.id !== selectedEvent.value.id);
-    selectedEvent.value = null;
-    showDeleteModal.value = false;
-  }
-
-  /** UX: scroll to list on change */
-  watch([selectedYear, selectedType, selectedStatus, viewMode], () => {
-    document.getElementById("events-list")?.scrollIntoView({ behavior: "smooth" });
-  });
+/** UX: scroll to list on change (search excluded to avoid jump while typing) */
+watch([selectedYear, selectedType, selectedStatus, viewMode], () => {
+  document.getElementById("events-list")?.scrollIntoView({ behavior: "smooth" });
+});
 </script>
 
 <style scoped>
-  .bg-maroon {
-    background-color: #740505;
-  }
-  .text-maroon {
-    color: #740505;
-  }
-  .border-maroon {
-    border-color: #740505;
-  }
+.bg-maroon { background-color: #740505; }
+.text-maroon { color: #740505; }
+.border-maroon { border-color: #740505; }
 
-  /* Ensure white text on hover for outline buttons */
-  :deep(.btn-readmore) {
-    border-color: #740505;
-    color: #740505;
-  }
-  :deep(.btn-readmore:hover) {
-    background-color: #740505;
-    color: #ffffff !important;
-  }
+/* Ensure white text on hover for outline buttons */
+:deep(.btn-readmore) {
+  border-color: #740505;
+  color: #740505;
+}
+:deep(.btn-readmore:hover) {
+  background-color: #740505;
+  color: #ffffff !important;
+}
 </style>
