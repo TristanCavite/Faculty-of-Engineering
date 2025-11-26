@@ -295,35 +295,6 @@
   // admission toggle (existing)
   const undergradVisible = computed(() => flags.value?.admissionUndergradVisible ?? true);
 
-  // Computed properties to determine active tabs based on current route
-  const isAboutActive = computed(() => {
-    return route.path.startsWith('/about');
-  });
-
-  const isAcademicsActive = computed(() => {
-    return route.path.startsWith('/academics');
-  });
-
-  const isAdmissionActive = computed(() => {
-    return route.path.startsWith('/admission');
-  });
-
-  const isResearchActive = computed(() => {
-    return route.path.startsWith('/research');
-  });
-
-  const isNewsActive = computed(() => {
-    return route.path.startsWith('/news');
-  });
-
-  const isDownloadActive = computed(() => {
-    return route.path.startsWith('/download');
-  });
-
-  const isObeActive = computed(() => {
-    return route.path.startsWith('/obe');
-  });
-
   const SOCIAL_ICONS: Record<string, any> = {
     facebook: Facebook,
     instagram: Instagram,
