@@ -10,10 +10,10 @@
         <UiCarouselContent>
           <UiCarouselItem v-for="(img, i) in images" :key="i" class="basis-full">
             <div class="p-1">
-              <div class="relative mx-auto w-[100%] md:w-[85%]" :style="{ paddingBottom: ratioPadding }">
-                <div class="absolute inset-0 overflow-hidden rounded-xl">
-                  <div class="h-full shrink-0 grow-0">
-                    <img :src="img.src" :alt="img.alt" class="h-full w-full object-cover object-center" loading="lazy" decoding="async" />
+              <div class="relative mx-auto w-full md:w-[85%] min-h-[240px] md:min-h-0" :style="{ paddingBottom: ratioPadding }">
+                <div class="absolute inset-0 overflow-hidden rounded-xl ">
+                  <div class="w-full h-full">
+                    <img :src="img.src" :alt="img.alt" class="object-cover object-center w-full h-full" loading="lazy" decoding="async" />
                   </div>
                 </div>
               </div>
@@ -22,21 +22,21 @@
         </UiCarouselContent>
 
         <UiCarouselPrevious
-          class="!aspect-auto !h-12 !w-10 !rounded-xl !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
+          class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:w-10 !md:rounded-xl !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
           iconClass="size-5 md:size-6 text-white"
         />
         <UiCarouselNext
-          class="!aspect-auto !h-12 !w-10 !rounded-xl !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
+          class="!absolute !right-2 md:!right-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:w-10 !md:rounded-xl !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
           iconClass="size-5 md:size-6 text-white"
         />
       </UiCarousel>
 
       <!-- Dots -->
-      <div class="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 transform space-x-2 md:bottom-4">
+      <div class="absolute z-10 flex space-x-2 transform -translate-x-1/2 bottom-2 left-1/2 md:bottom-4">
         <span
           v-for="(_, i) in images"
           :key="i"
-          class="size-1 rounded-full bg-gray-400 md:size-2"
+          class="bg-gray-400 rounded-full size-2"
           :class="{ 'bg-gray-800': currentIndex === i }"
           @click="setCurrentSlide(i)"
         />
@@ -52,70 +52,55 @@
       </div>
 
       <!-- Filter bar -->
-      <div class="mt-6 md:px-10 flex items-center justify-between gap-3">
-        <EventFilter v-model="typeFilter" />
-        <UiButton
-          v-if="selectedDate"
-          class="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
-          @click="selectedDate = null"
-        >
-          Clear date
-        </UiButton>
-      </div>
-
+      <EventFilter v-model="typeFilter" class="ml-4"/>
+    
       <!-- Layout -->
-      <div id="events-list" class="mt-4 grid grid-cols-1 gap-10 md:grid-cols-[minmax(680px,1fr)_420px] md:px-10">
+      <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[minmax(680px,1fr)_420px] md:px-10">
         <!-- LEFT: Events -->
         <div class="flex flex-col w-full space-y-6">
           <template v-if="filteredEvents.length > 0">
-            <div v-for="event in filteredEvents" :key="event.id" class="w-full p-5 bg-white rounded-lg shadow-2xl">
-              <span class="font-semibold text-red-800 text-md font-inter md:text-2xl">
+            <div v-for="event in filteredEvents" :key="event.id" class="w-full pt-5 pb-5 bg-white border rounded-lg shadow-2xl">
+              <span class="pl-5 pr-5 font-semibold text-red-800 text-md font-inter md:text-2xl">
                 EVENT DATE: {{ formatEventDate(event.date, event.dateEnd) }}
               </span>
 
-              <div class="relative mx-auto overflow-hidden">
-                <div class="flex flex-shrink-0 pt-4 pb-4 transition-transform duration-500" :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }">
-                  <div v-for="(img, i) in event.coverImages" :key="i" class="flex-shrink-0 w-full">
-                    <img :src="img" alt="" class="object-cover w-full h-64 md:h-80 lg:h-96" />
-                  </div>
-                </div>
+              <UiCarousel class="relative w-full max-w-none md:max-w-7xl" :plugins="[autoplay]" @init-api="(api) => setEventApi(event.id, api)">
+                <UiCarouselContent>
+                  <UiCarouselItem v-for="(img, i) in event.coverImages" :key="i">
+                    <div class="flex flex-shrink-0 pt-4 pb-4 transition-transform duration-500" :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }">
+                      <div class="flex-shrink-0 w-full">
+                        <img :src="img" alt="" class="object-cover w-full h-64 rounded-md md:h-80 lg:h-96" />
+                      </div>
+                    </div>
+                  </UiCarouselItem>
+                </UiCarouselContent>
+                <UiCarouselPrevious
+                  class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
+                  iconClass="size-5 md:size-6 text-white"
+                />
+                <UiCarouselNext
+                  class="!absolute !right-2 md:!right-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
+                  iconClass="size-5 md:size-6 text-white"
+                />
 
-                <button
-                  class="absolute z-10 text-red-900 -translate-y-1/2 rounded-full shadow-md right-3 top-1/2 size-9 bg-white/80 hover:scale-105 hover:bg-white md:size-10"
-                  @click="event.currentSlide = (event.currentSlide + 1) % event.coverImages.length"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-
-                <button
-                  class="absolute z-10 text-red-900 -translate-y-1/2 rounded-full shadow-md left-3 top-1/2 size-9 bg-white/80 hover:scale-105 hover:bg-white md:size-10"
-                  @click="event.currentSlide = (event.currentSlide - 1 + event.coverImages.length) % event.coverImages.length"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-
-                <div class="absolute z-10 flex space-x-2 -translate-x-1/2 bottom-4 left-1/2">
+                <div class="absolute z-10 flex space-x-2 -translate-x-1/2 left-1/2 bottom-6">
                   <span
                     v-for="(img, i) in event.coverImages"
                     :key="i"
-                    class="w-2 h-2 bg-gray-400 rounded-full"
-                    :class="{ 'bg-gray-800': (event.currentSlide || 0) === i }"
-                    @click="event.currentSlide = i"
+                    class="bg-gray-400 rounded-full size-2"
+                    :class="{ '!bg-gray-800 scale-125': getEventCurrentSlide(event.id) === i }"
+                    @click="setEventSlide(event.id, i)"
                   />
                 </div>
-              </div>
+              </UiCarousel>
 
-              <div class="pb-2 md:pt-2">
+              <div class="pb-2 pl-5 pr-5 md:pt-2">
                 <span class="text-xl font-semibold font-roboto md:text-2xl">{{ event.title }}</span>
                 <div class="text-sm italic text-gray-600">Published: {{ formatPublishDate(event.createdAt) }}</div>
               </div>
 
-              <div class="font-roboto"><p v-html="event.description"></p></div>
-              <div class="flex justify-between">
+              <div class="pl-5 pr-5 font-roboto"><p v-html="event.description"></p></div>
+              <div class="flex justify-between pl-5 pr-5 mt-4">
                 <UiButton
                   @click="readMore(event.id)"
                   class="inline-block px-2 py-1 text-xs font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
@@ -149,46 +134,55 @@
         <!-- RIGHT: Calendar + More -->
         <div class="hidden md:block md:w-[420px] md:justify-self-end">
           <div class="space-y-5">
-            <div class="rounded-xl bg-white p-6 shadow-xl">
+            <div class="flex justify-end mb-4 mr-5">
+              <UiButton
+                v-if="selectedDate"
+                class="px-3 py-1 text-white bg-red-900 rounded text-medium font-montserrat hover:bg-red-900 hover:scale-105"
+                @click="selectedDate = null"
+              >
+                Clear Date Filter
+              </UiButton>
+            </div>
+            <div class="p-6 bg-white border shadow-xl rounded-xl">
               <ClientOnly>
                 <AutoFitCalendar
-                  :attributes="calendarAttributes"
-                  v-model:selectedDate="selectedDate"
-                  @date-click="handleDayClick"
+                :attributes="calendarAttributes"
+                v-model:selectedDate="selectedDate"
+                @date-click="handleDayClick"
                 />
               </ClientOnly>
             </div>
 
+
             <div v-if="oldEvents.length" class="p-6 bg-white border shadow-xl rounded-xl border-neutral-200">
-              <div class="mb-3 flex cursor-pointer items-center gap-2 border-b border-neutral-300 pb-3" @click="goToMore" role="button" aria-label="View all events">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-maroon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 8v5l3 3 1.5-1.5L14 12.75V8h-2z" />
-                  <path d="M12 2a10 10 0 100 20 10 10 0 000-20zM4 12a8 8 0 1116 0 8 8 0 01-16 0z" />
-                </svg>
-                <div class="text-lg font-semibold text-maroon hover:underline">More events</div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="ml-auto h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+              <div class="flex items-center justify-between gap-2 pb-3 mb-3 text-red-900 border-b cursor-pointer border-neutral-300 hover:scale-105" @click="goToMore" role="button" aria-label="View all events">
+                <div class="flex items-center text-lg font-semibold ">
+                  <Clock class="w-5 h-5" />
+                  <span class="ml-2">Past Events</span>
+                </div>
+                <ChevronRight class="w-4 h-4" />
               </div>
 
               <ul class="space-y-2">
-                <li v-for="ev in oldEvents" :key="ev.id" class="flex items-start justify-between gap-3">
-                  <button class="text-sm font-medium text-left text-gray-800 hover:underline" @click="readMore(ev.id)" type="button">
-                    {{ ev.title }}
-                  </button>
-                  <span class="text-xs text-gray-500 shrink-0">{{ miniDate(ev.createdAt || ev.date) }}</span>
+                <li v-for="ev in oldEvents" :key="ev.id">
+                  <UiButton @click="readMore(ev.id)" class="flex items-center justify-between gap-3 text-sm bg-transparent hover:bg-transparent hover:scale-105" >
+                    <span class="font-medium text-left text-gray-800 truncate w-72 hover:text-red-900">
+                      {{ ev.title }}
+                    </span>
+                    <span class="text-gray-500 shrink-0 hover:text-red-900">{{ miniDate(ev.createdAt || ev.date) }}</span>
+                  </UiButton>
                 </li>
               </ul>
 
-              <div class="mt-4 hidden md:flex md:justify-end">
-                <button @click="goToMore" class="text-sm font-semibold text-maroon hover:underline" type="button">
+              <div class="hidden mt-4 md:flex md:justify-end">
+                <UiButton @click="goToMore" class="text-sm font-semibold text-white bg-red-900 hover:bg-red-950 hover:scale-105" >
                   See all events →
-                </button>
+                </UiButton>
               </div>
               <div class="mt-4 text-center md:hidden">
-                <button @click="goToMore" class="text-sm font-semibold text-maroon hover:underline" type="button">
+                <UiButton @click="goToMore" class="text-sm font-semibold text-red-900 hover:underline" >
                   See all events →
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
@@ -208,6 +202,7 @@ import { collection, getDocs, orderBy, query } from "firebase/firestore"
 import { computed, onMounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useFirestore } from "vuefire"
+import {Clock, ChevronRight} from "lucide-vue-next";
 
 const db = useFirestore()
 const router = useRouter()
@@ -230,6 +225,35 @@ const setCurrentSlide = (i: number) => api.value?.scrollTo(i)
 
 /* ---------- Events + calendar via composable ---------- */
 const events = ref<EventRecord[]>([])
+
+// Track carousel APIs and current slides for each event
+const eventCarouselApis = ref<Map<string, any>>(new Map())
+const eventCurrentSlides = ref<Map<string, number>>(new Map())
+
+function setEventApi(eventId: string, emblaApi: any) {
+  eventCarouselApis.value.set(eventId, emblaApi)
+  
+  if (emblaApi) {
+    // Initialize current slide
+    eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
+    
+    // Listen for slide changes
+    emblaApi.on("select", () => {
+      eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
+    })
+  }
+}
+
+function getEventCurrentSlide(eventId: string): number {
+  return eventCurrentSlides.value.get(eventId) || 0
+}
+
+function setEventSlide(eventId: string, slideIndex: number) {
+  const api = eventCarouselApis.value.get(eventId)
+  if (api) {
+    api.scrollTo(slideIndex)
+  }
+}
 
 onMounted(async () => {
   const snap = await getDocs(collection(db, "events"))
