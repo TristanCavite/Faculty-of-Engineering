@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-4xl px-4 py-5 mx-auto md:py-10">
+  <div class="max-w-4xl px-4 py-5 mx-auto border rounded md:py-10">
     <!-- Back button -->
     <div class="mb-6">
       <UiButton
@@ -15,7 +15,7 @@
     <!-- Research Content -->
     <div v-if="research">
       <!-- Title -->
-      <h1 class="mb-2 text-3xl font-bold text-maroon">{{ research.title }}</h1>
+      <h1 class="mb-2 text-3xl font-bold text-red-900">{{ research.title }}</h1>
 
       <!-- Meta (Date • Department • Researchers) -->
       <div class="flex flex-wrap items-center mb-6 text-sm text-gray-600 gap-x-3 gap-y-1">
@@ -33,51 +33,43 @@
       </div>
 
       <!-- Carousel -->
-      <div v-if="coverImages.length" class="relative mb-8 overflow-hidden rounded-xl">
-        <div
-          class="flex transition-transform duration-700 ease-in-out"
-          :style="{ transform: `translateX(-${currentSlide * 100}%)` }"
-        >
-          <div
-            v-for="(img, index) in coverImages"
-            :key="index"
-            class="md:h-[400px] w-full flex-shrink-0"
-          >
-            <img
-              :src="img"
-              class="w-full h-56 md:h-full object-covers"
-              :alt="`Slide ${index + 1}`"
-              loading="lazy"
+      <div v-if="coverImages.length">
+        <UiCarousel class="relative w-full mb-8 max-w-none md:max-w-7xl" :plugins="[Autoplay({ delay: 4000 })]"
+          @init-api="setCarouselApi">
+          <UiCarouselContent> 
+            <UiCarouselItem v-for="(img, index) in coverImages" :key="index">
+              <div class="flex flex-shrink-0 cursor-pointer aspect-video" @click="openPhotoModal(img, `Slide ${index + 1}`)">
+                <img
+                  :src="img"
+                  class="object-cover w-full h-56 md:h-[400px] rounded-xl"
+                  :alt="research.title || `Slide ${index + 1}`"
+                  loading="lazy"
+                  decoding="async"
+                  fetchpriority="high"
+                />
+              </div>
+            </UiCarouselItem>
+          </UiCarouselContent>
+
+           <UiCarouselPrevious
+              class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
+              iconClass="size-5 md:size-6 text-white"
             />
-          </div>
-        </div>
-
-        <!-- Arrows -->
-        <button
-          class="absolute z-10 p-2 transform -translate-y-1/2 rounded-full shadow left-4 top-1/2 bg-white/80 hover:bg-white "
-          @click="prevSlide"
-          aria-label="Previous image"
-        >
-          <ChevronLeft class="size-6 text-maroon" />
-        </button>
-        <button
-          class="absolute z-10 p-2 transform -translate-y-1/2 rounded-full shadow right-4 top-1/2 bg-white/80 hover:bg-white"
-          @click="nextSlide"
-          aria-label="Next image"
-        >
-          <ChevronRight class="size-6 text-maroon" />
-        </button>
-
-        <!-- Dots -->
-        <div class="absolute z-10 flex gap-2 transform -translate-x-1/2 bottom-3 left-1/2">
-          <span
-            v-for="(_, index) in coverImages"
-            :key="index"
-            class="rounded-full size-2"
-            :class="currentSlide === index ? 'bg-maroon' : 'bg-gray-300'"
-            @click="setSlide(index)"
-          />
-        </div>
+            <UiCarouselNext
+              class="!absolute !right-2 md:!right-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
+              iconClass="size-5 md:size-6 text-white"
+            />
+            <!-- Dots -->
+            <div class="absolute z-10 flex gap-2 transform -translate-x-1/2 bottom-3 left-1/2">
+              <span
+                v-for="(_, index) in coverImages"
+                :key="index"
+                class="rounded-full size-2"
+                 :class="carouselCurrentSlide === index ? 'bg-red-900 scale-125' : 'bg-gray-300'"
+               @click="scrollToSlide(index)"
+              />
+            </div>
+        </UiCarousel>
       </div>
 
       <!-- Description -->
@@ -90,9 +82,14 @@
         v-html="research.content"
         class="prose max-w-none prose-img:rounded"
       />
+      <PhotoModal
+        v-model="showPhotoModal"
+        :src="photoModalSrc"
+        :alt="photoModalAlt"
+        @close="showPhotoModal = false"
+      />
     </div>
-
-    <div v-else class="mt-20 text-center text-gray-500">Loading research...</div>
+    <div v-else="research" class="mt-20 text-center text-gray-500">Loading research...</div>
   </div>
 </template>
 
@@ -103,6 +100,8 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import { doc, getDoc, Timestamp } from 'firebase/firestore'
+import Autoplay from 'embla-carousel-autoplay'
+import { watchOnce } from '@vueuse/core'
 import { ArrowLeft, ChevronRight, ChevronLeft } from 'lucide-vue-next'
 
 interface ResearchDoc {
@@ -122,6 +121,17 @@ const db = useFirestore()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
+
+//Photo modal state
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 
 /** 1) Fetch on the SERVER so OG meta can be rendered */
 const { data: research } = await useAsyncData<ResearchDoc | null>(
@@ -152,19 +162,21 @@ const { data: research } = await useAsyncData<ResearchDoc | null>(
 const coverImages = computed<string[]>(() => research.value?.coverImages ?? [])
 const deptName   = computed(() => research.value?.deptName || '')
 
-const currentSlide = ref(0)
-let intervalId: ReturnType<typeof setInterval> | null = null
+const carouselApi = ref<any>()
+const carouselCurrentSlide = ref(0)
 
-function nextSlide() {
-  const len = coverImages.value.length
-  if (len) currentSlide.value = (currentSlide.value + 1) % len
+function setCarouselApi(api: any) {
+  carouselApi.value = api
+  if (api) {
+    carouselCurrentSlide.value = api.selectedScrollSnap()
+    api.on('select', () => {
+      carouselCurrentSlide.value = api.selectedScrollSnap()
+    })
+  }
 }
-function prevSlide() {
-  const len = coverImages.value.length
-  if (len) currentSlide.value = (currentSlide.value - 1 + len) % len
-}
-function setSlide(index: number) {
-  currentSlide.value = index
+
+function scrollToSlide(index: number) {
+  carouselApi.value?.scrollTo(index)
 }
 
 function goBack() { router.push('/research') }
@@ -180,10 +192,6 @@ function formatDate(ts?: Timestamp | { seconds: number } | Date | string | null)
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   })
 }
-
-/** 3) Auto-advance carousel (client only) */
-onMounted(() => { intervalId = setInterval(nextSlide, 4000) })
-onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
 
 /** 4) Social meta (Open Graph/Twitter) */
 const runtime = useRuntimeConfig()

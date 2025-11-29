@@ -1,9 +1,9 @@
 <template>
   <main class="relative">
-    <div class="mx-auto max-w-5xl space-y-3 px-5 pt-3 pb-4">
+    <div class="max-w-5xl px-5 pt-3 pb-4 mx-auto space-y-3">
       <!-- Back -->
       <UiButton
-        class="font-montserrat flex flex-row rounded bg-gray-200 text-sm font-semibold text-gray-800 transition hover:scale-105 hover:bg-gray-300"
+        class="flex flex-row text-sm font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
         @click="goBack"
       >
         <svg
@@ -27,7 +27,14 @@
         v-if="heroImage"
         :src="heroImage"
         alt="Event cover image"
-        class="max-h-[400px] w-full rounded object-cover"
+        class="max-h-[400px] w-full rounded object-cover cursor-pointer"
+        @click="openPhotoModal(heroImage, event?.title || '')"
+      />
+      <PhotoModal
+        v-model="showPhotoModal"
+        :src="photoModalSrc"
+        :alt="photoModalAlt"
+        @close="showPhotoModal = false"
       />
 
       <!-- Title -->
@@ -155,5 +162,16 @@ function formatDate(ts?: Timestamp | { seconds: number } | Date | string | null)
     day: 'numeric',
     weekday: 'long',
   })
+}
+
+//Photo Modal
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
 }
 </script>

@@ -12,7 +12,7 @@
             <div class="p-1">
               <div class="relative mx-auto w-full md:w-[85%] min-h-[240px] md:min-h-0" :style="{ paddingBottom: ratioPadding }">
                 <div class="absolute inset-0 overflow-hidden rounded-xl ">
-                  <div class="w-full h-full">
+                  <div class="w-full h-full cursor-pointer" @click="openPhotoModal(img.src, img.alt)">
                     <img :src="img.src" :alt="img.alt" class="object-cover object-center w-full h-full" loading="lazy" decoding="async" />
                   </div>
                 </div>
@@ -20,7 +20,7 @@
             </div>
           </UiCarouselItem>
         </UiCarouselContent>
-
+        
         <UiCarouselPrevious
           class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:w-10 !md:rounded-xl !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
           iconClass="size-5 md:size-6 text-white"
@@ -68,7 +68,7 @@
                 <UiCarouselContent>
                   <UiCarouselItem v-for="(img, i) in event.coverImages" :key="i">
                     <div class="flex flex-shrink-0 pt-4 pb-4 transition-transform duration-500" :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }">
-                      <div class="flex-shrink-0 w-full">
+                      <div class="flex-shrink-0 w-full cursor-pointer" @click="openPhotoModal(img, '')">
                         <img :src="img" alt="" class="object-cover w-full h-64 rounded-md md:h-80 lg:h-96" />
                       </div>
                     </div>
@@ -189,6 +189,12 @@
         </div>
       </div> <!-- /grid -->
     </div>
+    <PhotoModal
+      v-model="showPhotoModal"
+      :src="photoModalSrc"
+      :alt="photoModalAlt"
+      @close="showPhotoModal = false"
+    />
   </main>
 </template>
 
@@ -222,6 +228,17 @@ watchOnce(api, (embla) => {
   embla.on("select", updateFromApi)
 })
 const setCurrentSlide = (i: number) => api.value?.scrollTo(i)
+
+/* ---------- Photo modal ---------- */
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 
 /* ---------- Events + calendar via composable ---------- */
 const events = ref<EventRecord[]>([])
