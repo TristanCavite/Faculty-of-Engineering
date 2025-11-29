@@ -70,7 +70,7 @@
         >
           <!-- Title -->
           <NuxtLink :to="`/research/${item.id}`" class="block">
-            <h2 class="text-lg font-semibold text-maroon hover:underline">
+            <h2 class="text-lg font-semibold text-red-900 hover:underline">
               {{ item.title }}
             </h2>
           </NuxtLink>
@@ -91,16 +91,22 @@
           </div>
 
           <!-- Cover -->
-          <NuxtLink :to="`/research/${item.id}`" class="block">
-            <img
-              v-if="item.coverImages?.length"
-              :src="item.coverImages[0]"
-              alt="Cover"
-              class="object-contain w-full mt-3 bg-white rounded max-h-96"
-              loading="lazy"
-            />
-          </NuxtLink>
+          <img
+            v-if="item.coverImages?.length"
+            :src="item.coverImages[0]"
+            alt="Cover"
+            class="object-contain w-full mt-3 bg-white rounded cursor-pointer max-h-96"
+            loading="lazy"
+            decoding="async"
+            @click="openPhotoModal(item.coverImages[0], item.title)"
+          />
 
+          <PhotoModal
+            v-model="showPhotoModal"
+            :src="photoModalSrc"
+            :alt="photoModalAlt"
+            @close="showPhotoModal = false"
+          />
 
           <!-- Description -->
           <p class="mt-3 text-sm text-gray-700">
@@ -139,6 +145,7 @@ import { useRouter } from 'vue-router'
 
 const db = useFirestore()
 const router = useRouter()
+
 
 /* Data */
 const researches = ref<any[]>([])
@@ -179,6 +186,17 @@ const filteredResearches = computed(() => {
     return matchYear && matchDept
   })
 })
+
+/* Photo Modal */
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 
 /* Utils */
 function departmentName(id?: string) {
