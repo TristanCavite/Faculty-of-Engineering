@@ -9,19 +9,9 @@
         ← Back to News
       </UiButton>
 
-      <!-- If published: show Unpublish -->
-      <UiButton
-        v-if="news && news.published === true"
-        class="bg-maroon text-white hover:opacity-90"
-        :disabled="working"
-        @click="unpublish"
-      >
-        Unpublish
-      </UiButton>
-
       <!-- If draft: show Edit -->
       <UiButton
-        v-else-if="news"
+        v-if="news && news.status === 'draft'"  
         class="border border-maroon text-maroon bg-white hover:bg-maroon hover:text-white"
         @click="editNews"
       >
@@ -45,7 +35,7 @@
       <span class="mx-2 text-gray-300">•</span>
       <span>{{ formatDate(news?.createdAt) }}</span>
       <span
-        v-if="news && news.published === false"
+        v-if="news && news.status === 'draft'"
         class="ml-2 rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-800 border border-yellow-200"
       >Draft</span>
     </div>
@@ -60,10 +50,10 @@
 
 <script setup lang="ts">
  definePageMeta({
-       middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
-  });
+   middleware: ['auth'],
+   roles: ['faculty'],
+   layout: "faculty",
+ })
 
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
@@ -79,7 +69,7 @@ const news = ref<any>(null)
 const working = ref(false)
 
 function goBackToIndex() {
-  router.push('/Admin/super-admin/news')
+  router.push('/Admin/faculty/news')
 }
 
 onMounted(async () => {
@@ -93,18 +83,18 @@ async function unpublish() {
   working.value = true
   try {
     await updateDoc(doc(db, 'news', newsId), {
-      published: false,
+      status: 'draft',  // Change status to draft (as faculty can't unpublish directly)
       updatedAt: serverTimestamp(),
     })
     // After unpublishing, send it back to the list (now visible under Drafts)
-    router.push('/Admin/super-admin/news')
+    router.push('/Admin/faculty/news')
   } finally {
     working.value = false
   }
 }
 
 function editNews() {
-  router.push(`/Admin/super-admin/news/add_news?id=${newsId}`)
+  router.push(`/Admin/faculty/news/add_news?id=${newsId}`)
 }
 
 function formatDate(ts: Timestamp | null) {

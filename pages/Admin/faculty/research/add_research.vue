@@ -10,7 +10,7 @@
         <UiButton
           type="button"
           class="btn-outline-maroon"
-          @click="router.push('/admin/super-admin/research')"
+          @click="router.push('/admin/faculty/research')"
         >
           Close
         </UiButton>
@@ -21,7 +21,7 @@
           :disabled="loading"
           @click="saveResearch(false)"
         >
-          {{ loading && lastAction==='save' ? 'Saving…' : 'Save' }}
+          {{ loading && lastAction === 'save' ? 'Saving…' : 'Save' }}
         </UiButton>
 
         <UiButton
@@ -30,7 +30,7 @@
           :disabled="loading"
           @click="saveResearch(true)"
         >
-          {{ loading && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
+          {{ loading && lastAction === 'publish' ? 'Publishing…' : 'Publish' }}
         </UiButton>
       </div>
     </div>
@@ -104,8 +104,26 @@
         <label class="mb-1 block text-sm font-medium text-gray-700">Cover Images</label>
         <input type="file" accept="image/*" multiple @change="handleFileChange" />
         <div v-if="previewUrls.length" class="mt-2 flex gap-4 overflow-x-auto">
-          <img v-for="(src, i) in previewUrls" :key="i" :src="src" class="h-40 rounded border object-cover" />
-        </div>
+  <div
+    v-for="(src, i) in previewUrls"
+    :key="i"
+    class="relative"
+  >
+    <img
+      :src="src"
+      class="h-40 rounded border object-cover"
+    />
+    <button
+      type="button"
+      class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-red-600 shadow hover:bg-white"
+      aria-label="Remove image"
+      @click="removeImageAt(i)"
+    >
+      ×
+    </button>
+  </div>
+</div>
+
       </div>
 
       <!-- Tiptap Editor -->
@@ -133,9 +151,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useFirestore, useStorage } from 'vuefire'
 
 definePageMeta({
-    middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
 const db = useFirestore()
@@ -144,6 +162,8 @@ const router = useRouter()
 const route = useRoute()
 
 const isEditMode = computed(() => !!route.query.id)
+
+type Status = 'draft' | 'pending' | 'published'
 
 /* Departments */
 type Department = { id: string; name: string }
@@ -165,24 +185,36 @@ const form = ref({
   date: '',
   description: '',
   content: '',
-  coverImages: [] as string[],
+  coverImages: [] as string[],   // existing uploaded URLs
   departmentId: '',
   researchers: '',
 })
 
 /* Local state */
-const imageFiles = ref<File[]>([])
-const previewUrls = ref<string[]>([])
+const imageFiles = ref<File[]>([])   // NEW files to upload (stacked)
+const previewUrls = ref<string[]>([]) // existing URLs + local object URLs
 const loading = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 const editorReady = ref(false)
+const existingStatus = ref<Status>('draft')
+
+function refreshPreviews() {
+  const localPreviews = imageFiles.value.map((f) => URL.createObjectURL(f))
+  previewUrls.value = [...(form.value.coverImages || []), ...localPreviews]
+}
 
 function handleFileChange(e: Event) {
   const target = e.target as HTMLInputElement
   const files = target.files
   if (!files) return
-  imageFiles.value = Array.from(files)
-  previewUrls.value = imageFiles.value.map((f) => URL.createObjectURL(f))
+
+  // STACK the new files on top of previous ones (do not reset)
+  const newFiles = Array.from(files)
+  imageFiles.value = [...imageFiles.value, ...newFiles]
+
+  refreshPreviews()
+  // allow same file selection again if needed
+  target.value = ''
 }
 
 /* Load existing research + departments */
@@ -202,14 +234,28 @@ onMounted(async () => {
         content: data.content || '',
         coverImages: data.coverImages || [],
         departmentId: data.departmentId || '',
-        researchers: Array.isArray(data.researchers) ? data.researchers.join(', ') : (data.researchers || ''),
+        researchers: Array.isArray(data.researchers)
+          ? data.researchers.join(', ')
+          : (data.researchers || ''),
       }
-      previewUrls.value = form.value.coverImages
+      existingStatus.value = deriveStatus(data)
+      refreshPreviews()
+    } else {
+      refreshPreviews()
     }
+  } else {
+    refreshPreviews()
   }
 })
 
-/** Save handler: publish=true => published, else draft */
+function deriveStatus(data: any): Status {
+  const raw = typeof data.status === 'string' ? data.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') return raw
+  // fallback from old boolean field
+  return data.published === true ? 'published' : 'draft'
+}
+
+/** Save handler: publish=true => pending, save => draft */
 async function saveResearch(publish: boolean) {
   if (!form.value.departmentId) {
     alert('Please select a department.')
@@ -222,30 +268,47 @@ async function saveResearch(publish: boolean) {
   try {
     const id = (route.query.id as string) || crypto.randomUUID()
 
-    // upload covers if new files chosen
-    let uploadedUrls: string[] = form.value.coverImages || []
+    // Start with existing coverImages (already in Firestore)
+    let coverImages: string[] = [...(form.value.coverImages || [])]
+
+    // Upload ONLY the newly selected files and stack them
     if (imageFiles.value.length) {
-      uploadedUrls = []
+      const offset = coverImages.length
       for (const [index, file] of imageFiles.value.entries()) {
         const ext = file.name.split('.').pop() || 'jpg'
-        const path = `researches/${id}/cover_${index}.${ext}`
+        const path = `researches/${id}/cover_${offset + index}.${ext}`
         const fileRef = storageRef(storage, path)
         await uploadBytes(fileRef, file)
-        uploadedUrls.push(await getDownloadURL(fileRef))
+        coverImages.push(await getDownloadURL(fileRef))
       }
     }
 
+    // Status logic: Save -> draft, Publish -> pending (same pattern as events)
+    const status: Status = publish
+      ? 'pending'
+      : isEditMode.value
+      ? existingStatus.value
+      : 'draft'
+
     const payload: any = {
       ...form.value,
-      coverImages: uploadedUrls,
-      published: publish,
-      publishedAt: publish ? serverTimestamp() : null,
+      coverImages,
+      status,
+      published: status === 'published',
+      publishedAt: status === 'published' ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
     }
     if (!isEditMode.value) payload.createdAt = serverTimestamp()
 
-    await setDoc(doc(db, 'researches', id), payload, { merge: true })
-    router.push('/admin/super-admin/research')
+    await setDoc(doc(collection(db, 'researches'), id), payload, { merge: true })
+
+    existingStatus.value = status
+    form.value.coverImages = coverImages
+    imageFiles.value = []
+    refreshPreviews()
+
+    alert(status === 'pending' ? 'Research submitted for approval.' : 'Research saved.')
+    router.push('/admin/faculty/research')
   } catch (err) {
     console.error('Error saving research:', err)
     alert('Something went wrong. Please try again.')
@@ -276,11 +339,31 @@ function suppressButtonSubmit(event: Event) {
   if (!btn) return
   if (!btn.type || btn.type.toLowerCase() === 'submit') event.preventDefault()
 }
+
+function removeImageAt(idx: number) {
+  // how many existing URLs are already stored in Firestore
+  const existingCount = form.value.coverImages.length
+
+  if (idx < existingCount) {
+    // remove from existing coverImages (these are URLs already saved)
+    form.value.coverImages.splice(idx, 1)
+  } else {
+    // remove from newly-selected files
+    const localIndex = idx - existingCount
+    if (localIndex >= 0 && localIndex < imageFiles.value.length) {
+      imageFiles.value.splice(localIndex, 1)
+    }
+  }
+
+  // rebuild preview list (existing URLs + remaining new files)
+  refreshPreviews()
+}
+
 </script>
 
 <style scoped>
-.text-maroon { color:#740505; }
-.bg-maroon { background-color:#740505; }
+.text-maroon { color: #740505; }
+.bg-maroon { background-color: #740505; }
 
 /* Outline pill that flips to maroon with white text on hover */
 .btn-outline-maroon {

@@ -1,17 +1,12 @@
 <template>
   <div class="mx-auto max-w-5xl px-4 py-8">
-    <!-- Header + Actions -->
     <div class="mb-6 flex items-center justify-between gap-4">
       <h1 class="text-2xl font-bold text-maroon">
         {{ isEditMode ? 'Edit Event' : 'Add New Event' }}
       </h1>
 
       <div class="flex items-center gap-3">
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          @click="router.push('/admin/super-admin/events')"
-        >
+        <UiButton type="button" class="btn-outline-maroon" @click="router.push('/admin/faculty/events')">
           Close
         </UiButton>
 
@@ -35,33 +30,36 @@
       </div>
     </div>
 
-    <div v-if="isEditMode" class="mb-4 text-sm text-gray-500">
+    <div v-if="isEditMode" class="mb-2 text-sm text-gray-500">
       You are editing an existing event.
     </div>
 
-    <!-- Form (no implicit submit) -->
+    <p
+      v-if="validationError"
+      class="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+    >
+      {{ validationError }}
+    </p>
+
     <form
       @submit.prevent
       @keydown.enter.capture="preventEnterSubmit"
       class="space-y-6"
       novalidate
     >
-      <!-- Title -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Title</label>
         <input
           v-model="form.title"
           type="text"
-          required
           class="input input-bordered w-full"
           placeholder="Enter event title"
         />
       </div>
 
-      <!-- Dates -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
-        <input v-model="form.date" type="date" required class="input input-bordered w-full" />
+        <input v-model="form.date" type="date" class="input input-bordered w-full" />
       </div>
 
       <div>
@@ -70,9 +68,10 @@
         <p class="mt-1 text-xs text-gray-500">Leave blank if the event is only one day.</p>
       </div>
 
-      <!-- Event Type -->
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">Event Type / Audience</label>
+        <label class="mb-1 block text-sm font-medium text-gray-700">
+          Event Type / Audience
+        </label>
         <select v-model="form.eventType" class="select select-bordered w-full">
           <option disabled value="">Select event type (for filtering)</option>
           <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">
@@ -84,33 +83,41 @@
         </p>
       </div>
 
-      <!-- Description -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Short Description</label>
         <textarea
           v-model="form.description"
           rows="3"
-          required
           class="textarea textarea-bordered w-full"
           placeholder="Enter a brief description of the event"
         />
       </div>
 
-      <!-- Cover Images -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Cover Images</label>
         <input type="file" accept="image/*" multiple @change="handleFileChange" />
         <div v-if="previewUrls.length" class="mt-2 flex gap-4 overflow-x-auto">
-          <img
+          <div
             v-for="(src, i) in previewUrls"
             :key="i"
-            :src="src"
-            class="h-40 rounded border object-cover"
-          />
+            class="relative"
+          >
+            <img
+              :src="src"
+              class="h-40 rounded border object-cover"
+            />
+            <button
+              type="button"
+              class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-red-600 shadow hover:bg-white"
+              aria-label="Remove image"
+              @click="removeImageAt(i)"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Content -->
       <div @click.capture="blockSubmitsFromEditor">
         <label class="mb-1 block text-sm font-medium text-gray-700">Content</label>
         <UiTiptapEditor
@@ -118,7 +125,7 @@
           :modelValue="form.content"
           :editing="true"
           class="rounded border border-gray-300 bg-white"
-          @update:modelValue="(val) => (form.content = val)"
+          @update:modelValue="val => (form.content = val)"
           @imageUpload="handleEditorImageUpload"
         />
       </div>
@@ -127,159 +134,220 @@
 </template>
 
 <script setup lang="ts">
-import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useFirestore, useStorage } from 'vuefire'
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useFirestore, useStorage } from "vuefire";
 
 definePageMeta({
-   middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
-})
+  middleware: ["auth"],
+  roles: ["faculty"],
+  layout: "faculty",
+});
 
-const db = useFirestore()
-const storage = useStorage()
-const router = useRouter()
-const route = useRoute()
+const db = useFirestore();
+const storage = useStorage();
+const router = useRouter();
+const route = useRoute();
 
-const isEditMode = computed(() => !!route.query.id)
+const isEditMode = computed(() => !!route.query.id);
 
 const EVENT_TYPES = [
-  { value: 'university', label: 'University' },
-  { value: 'faculty', label: 'Faculty' },
-  { value: 'students', label: 'Students' },
-  { value: 'department', label: 'Department' },
-  { value: 'general', label: 'General' },
-] as const
+  { value: "university", label: "University" },
+  { value: "faculty", label: "Faculty" },
+  { value: "students", label: "Students" },
+  { value: "department", label: "Department" },
+  { value: "general", label: "General" },
+] as const;
+type EventType = (typeof EVENT_TYPES)[number]["value"] | "";
 
-type EventType = '' | 'university' | 'faculty' | 'students' | 'department' | 'general'
+type Status = "draft" | "pending" | "published";
 
 const form = ref({
-  title: '',
-  date: '',
-  dateEnd: '',
-  description: '',
-  content: '',
+  title: "",
+  date: "",
+  dateEnd: "",
+  description: "",
+  content: "",
   coverImages: [] as string[],
-  eventType: '' as EventType,
-})
+  eventType: "" as EventType,
+});
 
-const imageFiles = ref<File[]>([])
-const previewUrls = ref<string[]>([])
-const loading = ref(false)
-const lastAction = ref<'save' | 'publish' | null>(null)
-const editorReady = ref(false)
+const imageFiles = ref<File[]>([]);
+const previewUrls = ref<string[]>([]);
+const loading = ref(false);
+const lastAction = ref<"save" | "publish" | null>(null);
+const editorReady = ref(false);
+const validationError = ref<string | null>(null);
+const existingStatus = ref<Status>("draft");
 
-/** File input */
-function handleFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  const files = target.files
-  if (!files) return
-  imageFiles.value = Array.from(files)
-  previewUrls.value = imageFiles.value.map((f) => URL.createObjectURL(f))
+function refreshPreviews() {
+  const localPreviews = imageFiles.value.map((f) => URL.createObjectURL(f));
+  previewUrls.value = [...form.value.coverImages, ...localPreviews];
 }
 
-/** Populate in edit mode */
-onMounted(async () => {
-  const id = route.query.id as string
-  editorReady.value = true
-  if (isEditMode.value && id) {
-    const snap = await getDoc(doc(db, 'events', id))
-    if (snap.exists()) {
-      const data = snap.data() as any
-      form.value = {
-        title: data.title || '',
-        date: data.date || '',
-        dateEnd: data.dateEnd || '',
-        description: data.description || '',
-        content: data.content || '',
-        coverImages: data.coverImages || [],
-        eventType: (data.eventType as EventType) || '',
-      }
-      previewUrls.value = form.value.coverImages
+function handleFileChange(e: Event) {
+  const files = (e.target as HTMLInputElement).files;
+  if (!files) return;
+
+  const newFiles = Array.from(files);
+  imageFiles.value = [...imageFiles.value, ...newFiles];
+
+  refreshPreviews();
+  (e.target as HTMLInputElement).value = "";
+}
+
+function removeImageAt(idx: number) {
+  const existingCount = form.value.coverImages.length;
+
+  if (idx < existingCount) {
+    form.value.coverImages.splice(idx, 1);
+  } else {
+    const localIndex = idx - existingCount;
+    if (localIndex >= 0 && localIndex < imageFiles.value.length) {
+      imageFiles.value.splice(localIndex, 1);
     }
   }
-})
 
-/** Save helper (publish=true => published, else draft) */
+  refreshPreviews();
+}
+
+function deriveStatus(data: any): Status {
+  const raw = typeof data.status === "string" ? data.status.toLowerCase() : "";
+  if (raw === "draft" || raw === "pending" || raw === "published") return raw;
+  return data.published === true ? "published" : "draft";
+}
+
+onMounted(async () => {
+  editorReady.value = true;
+  const id = route.query.id as string | undefined;
+  if (!id) return;
+
+  const snap = await getDoc(doc(db, "events", id));
+  if (!snap.exists()) {
+    refreshPreviews();
+    return;
+  }
+
+  const data = snap.data() as any;
+  form.value = {
+    title: data.title || "",
+    date: data.date || "",
+    dateEnd: data.dateEnd || "",
+    description: data.description || "",
+    content: data.content || "",
+    coverImages: data.coverImages || [],
+    eventType: (data.eventType as EventType) || "",
+  };
+
+  existingStatus.value = deriveStatus(data);
+  refreshPreviews();
+});
+
+function validateForm() {
+  const { title, date, eventType, description, content } = form.value;
+  if (
+    !title.trim() ||
+    !date ||
+    !eventType ||
+    !description.trim() ||
+    !content.trim()
+  ) {
+    validationError.value = "Please fill in all required fields.";
+    return false;
+  }
+  validationError.value = null;
+  return true;
+}
+
 async function saveEvent(publish: boolean) {
-  if (loading.value) return
-  loading.value = true
-  lastAction.value = publish ? 'publish' : 'save'
+  if (loading.value) return;
+  lastAction.value = publish ? "publish" : "save";
 
+  if (!validateForm()) {
+    lastAction.value = null;
+    return;
+  }
+
+  loading.value = true;
   try {
-    const id = (route.query.id as string) || crypto.randomUUID()
+    const id = (route.query.id as string) || crypto.randomUUID();
 
-    // Upload newly selected cover images
-    let uploadedUrls: string[] = form.value.coverImages || []
+    let coverImages: string[] = [...(form.value.coverImages || [])];
+
     if (imageFiles.value.length) {
-      uploadedUrls = []
+      const offset = coverImages.length;
       for (const [index, file] of imageFiles.value.entries()) {
-        const ext = file.name.split('.').pop() || 'jpg'
-        const path = `events/${id}/cover_${index}.${ext}`
-        const fileRef = storageRef(storage, path)
-        await uploadBytes(fileRef, file)
-        uploadedUrls.push(await getDownloadURL(fileRef))
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `events/${id}/cover_${offset + index}.${ext}`;
+        const fileRef = storageRef(storage, path);
+        await uploadBytes(fileRef, file);
+        coverImages.push(await getDownloadURL(fileRef));
       }
     }
+
+    const status: Status = publish
+      ? "pending"
+      : isEditMode.value
+      ? existingStatus.value
+      : "draft";
 
     const payload: any = {
       ...form.value,
-      coverImages: uploadedUrls,
-      published: publish,
-      publishedAt: publish ? serverTimestamp() : null,
+      coverImages,
+      status,
+      published: status === "published",
+      publishedAt: status === "published" ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
-    }
-    if (!isEditMode.value) payload.createdAt = serverTimestamp()
+    };
+    if (!isEditMode.value) payload.createdAt = serverTimestamp();
 
-    await setDoc(doc(db, 'events', id), payload, { merge: true })
-    router.push('/admin/super-admin/events')
+    await setDoc(doc(collection(db, "events"), id), payload, { merge: true });
+    existingStatus.value = status;
+
+    alert(status === "pending" ? "Event submitted for approval." : "Event saved.");
+    router.push("/admin/faculty/events");
   } catch (err) {
-    console.error('Error saving event:', err)
-    alert('Something went wrong. Please try again.')
+    console.error(err);
+    alert("Something went wrong while saving the event.");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
-/** Guard: avoid Enter submitting the form when typing */
 function preventEnterSubmit(e: KeyboardEvent) {
-  const el = e.target as HTMLElement
-  const isTextarea = el.tagName === 'TEXTAREA'
-  const isCE = (el as any)?.isContentEditable === true
-  if (!isTextarea && !isCE) e.preventDefault()
+  const el = e.target as HTMLElement;
+  if (el.tagName !== "TEXTAREA" && !(el as any).isContentEditable) e.preventDefault();
 }
 
-/** Keep editor toolbar buttons from submitting */
 function blockSubmitsFromEditor(e: Event) {
-  const btn = (e.target as HTMLElement)?.closest?.('button') as HTMLButtonElement | null
-  if (!btn) return
-  if (!btn.type || btn.type.toLowerCase() === 'submit') e.preventDefault()
+  const btn = (e.target as HTMLElement)?.closest("button") as HTMLButtonElement | null;
+  if (btn && (!btn.type || btn.type.toLowerCase() === "submit")) e.preventDefault();
 }
 
-/** Tiptap image upload hook */
 const handleEditorImageUpload = async (file: File): Promise<string> => {
-  const fileId = crypto.randomUUID()
-  const ext = file.name.split('.').pop() || 'jpg'
-  const path = `events/editor/${fileId}.${ext}`
-  const fileRef = storageRef(storage, path)
-  await uploadBytes(fileRef, file)
-  return await getDownloadURL(fileRef)
-}
+  const id = crypto.randomUUID();
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `events/editor/${id}.${ext}`;
+  const fileRef = storageRef(storage, path);
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
+};
 </script>
 
 <style scoped>
-.text-maroon { color: #740505; }
-.bg-maroon { background-color: #740505; }
-
-/* Outline style matching your UI buttons */
+.text-maroon {
+  color: #740505;
+}
+.bg-maroon {
+  background-color: #740505;
+}
 .btn-outline-maroon {
   background-color: #ffffff;
   border: 1px solid #740505;
   color: #740505;
-  transition: background-color .15s, color .15s, border-color .15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 .btn-outline-maroon:hover {
   background-color: #740505;

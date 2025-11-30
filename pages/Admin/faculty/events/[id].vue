@@ -13,20 +13,9 @@
         Back to Events
       </UiButton>
 
-      <!-- Show UNPUBLISH only when published -->
+      <!-- Faculty: can ONLY edit draft events (not pending, not published) -->
       <UiButton
-        v-if="event?.published === true"
-        type="button"
-        class="bg-maroon text-white hover:opacity-90"
-        :disabled="busy"
-        @click="unpublish"
-      >
-        {{ busy ? 'Unpublishing…' : 'Unpublish' }}
-      </UiButton>
-
-      <!-- Otherwise show EDIT (drafts are editable) -->
-      <UiButton
-        v-else
+        v-if="status === 'draft'"
         type="button"
         class="bg-maroon text-white hover:opacity-90"
         @click="editEvent"
@@ -54,7 +43,7 @@
             :key="i"
             class="h-[400px] w-full flex-shrink-0"
           >
-            <img :src="img" class="h-full w-full object-cover" :alt="`Slide ${i+1}`" />
+            <img :src="img" class="h-full w-full object-cover" :alt="`Slide ${i + 1}`" />
           </div>
         </div>
 
@@ -98,25 +87,26 @@
 
 <script setup lang="ts">
 definePageMeta({
-    middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { ArrowLeft, Pen, ChevronRight, ChevronLeft } from 'lucide-vue-next'
 
 const db = useFirestore()
 const route = useRoute()
 const router = useRouter()
 
+type Status = 'draft' | 'pending' | 'published'
+
 const event = ref<any>(null)
 const coverImages = ref<string[]>([])
 const currentSlide = ref(0)
-const busy = ref(false)
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 async function loadEvent() {
@@ -128,9 +118,24 @@ async function loadEvent() {
   }
 }
 
+/** Canonical status based on `status` field with fallback to old `published` boolean */
+const status = computed<Status>(() => {
+  const e = event.value
+  if (!e) return 'draft'
+  const raw = typeof e.status === 'string' ? e.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback for older docs
+  return e.published === true ? 'published' : 'draft'
+})
+
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   })
 
 function nextSlide() {
@@ -139,57 +144,46 @@ function nextSlide() {
 }
 function prevSlide() {
   if (!coverImages.value.length) return
-  currentSlide.value = (currentSlide.value - 1 + coverImages.value.length) % coverImages.value.length
+  currentSlide.value =
+    (currentSlide.value - 1 + coverImages.value.length) % coverImages.value.length
 }
-function setSlide(i: number) { currentSlide.value = i }
+function setSlide(i: number) {
+  currentSlide.value = i
+}
 
-function goBack() { router.push('/admin/super-admin/events') }
+function goBack() {
+  router.push('/admin/faculty/events')
+}
 function editEvent() {
-  router.push({ path: '/admin/super-admin/events/add_event', query: { id: route.params.id as string } })
-}
-
-/** Unpublish -> move back to draft */
-async function unpublish() {
-  if (!event.value || busy.value) return
-  busy.value = true
-  try {
-    const id = route.params.id as string
-    await updateDoc(doc(db, 'events', id), {
-      published: false,
-      publishedAt: null,
-      updatedAt: serverTimestamp(),
-    })
-    event.value.published = false
-    event.value.publishedAt = null
-  } catch (e) {
-    console.error(e)
-    alert('Failed to unpublish. Please try again.')
-  } finally {
-    busy.value = false
-  }
+  router.push({
+    path: '/admin/faculty/events/add_event',
+    query: { id: route.params.id as string },
+  })
 }
 
 onMounted(() => {
   loadEvent()
   intervalId = setInterval(nextSlide, 4000)
 })
-onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
+onUnmounted(() => {
+  if (intervalId) clearInterval(intervalId)
+})
 </script>
 
 <style scoped>
-.text-maroon { color:#740505; }
-.bg-maroon   { background-color:#740505; }
-.border-maroon { border-color:#740505; }
+.text-maroon { color: #740505; }
+.bg-maroon   { background-color: #740505; }
+.border-maroon { border-color: #740505; }
 
-/* Outline pill that turns white text on hover (same fix you used elsewhere) */
+/* Outline pill that turns white text on hover */
 :deep(.btn-outline-maroon) {
-  background-color:#ffffff;
-  border:1px solid #740505;
-  color:#740505;
+  background-color: #ffffff;
+  border: 1px solid #740505;
+  color: #740505;
   transition: background-color .15s, color .15s, border-color .15s;
 }
 :deep(.btn-outline-maroon:hover) {
-  background-color:#740505;
-  color:#ffffff !important;
+  background-color: #740505;
+  color: #ffffff !important;
 }
 </style>

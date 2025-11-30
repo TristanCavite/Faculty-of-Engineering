@@ -20,7 +20,10 @@
         >
           Save
         </UiButton>
-        <UiButton class="bg-maroon text-white hover:opacity-90" @click="submitNews(true)">
+        <UiButton
+          class="bg-maroon text-white hover:opacity-90"
+          @click="submitNews(true)"
+        >
           Publish
         </UiButton>
       </div>
@@ -47,17 +50,22 @@
           accept="image/*"
           @change="handleCoverImage"
         />
-        <img
-          v-if="form.imageUrl"
-          :src="form.imageUrl"
-          class="mt-2 h-48 w-full rounded object-cover"
-        />
+        <div v-if="form.imageUrl" class="mt-2 flex justify-center rounded border bg-gray-100 overflow-hidden">
+          <img
+            :src="form.imageUrl"
+            class="max-h-96 w-auto object-contain p-2"
+          />
+        </div>
       </div>
 
       <!-- Description -->
       <div class="md:col-span-2">
         <label class="mb-1 block font-semibold">Description</label>
-        <textarea v-model="form.description" rows="3" class="textarea textarea-bordered w-full" />
+        <textarea
+          v-model="form.description"
+          rows="3"
+          class="textarea textarea-bordered w-full"
+        />
       </div>
     </div>
 
@@ -90,29 +98,29 @@ import {
 } from 'firebase/firestore'
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
- definePageMeta({
-       middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
+})
 
 const route = useRoute()
 const router = useRouter()
 const db = useFirestore()
 const storage = useFirebaseStorage()
 
-/** Page state */
+type Status = 'draft' | 'pending' | 'published'
+
 const isEditMode = ref(false)
 const newsId = ref<string | null>(null)
+const existingStatus = ref<Status>('draft')
 
-/** Form model */
 const form = ref<{
   title: string
   author: string
   description: string
   imageUrl: string
   content: string
-  published?: boolean
   createdAt?: Timestamp
 }>({
   title: '',
@@ -121,6 +129,12 @@ const form = ref<{
   imageUrl: '',
   content: '',
 })
+
+function deriveStatus(data: any): Status {
+  const raw = typeof data.status === 'string' ? data.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') return raw
+  return data.published === true ? 'published' : 'draft'
+}
 
 /** Prefill in edit mode via ?id=... */
 onMounted(async () => {
@@ -131,15 +145,17 @@ onMounted(async () => {
   newsId.value = id
 
   const snap = await getDoc(doc(db, 'news', id))
-  if (snap.exists()) {
-    const data: any = snap.data()
-    form.value.title = data.title || ''
-    form.value.author = data.author || ''
-    form.value.description = data.description || ''
-    form.value.imageUrl = data.imageUrl || ''
-    form.value.content = data.content || ''
-    form.value.createdAt = data.createdAt
-  }
+  if (!snap.exists()) return
+
+  const data: any = snap.data()
+  form.value.title = data.title || ''
+  form.value.author = data.author || ''
+  form.value.description = data.description || ''
+  form.value.imageUrl = data.imageUrl || ''
+  form.value.content = data.content || ''
+  form.value.createdAt = data.createdAt
+
+  existingStatus.value = deriveStatus(data)
 })
 
 /** Cover image upload to Storage */
@@ -165,7 +181,7 @@ async function handleEditorImageUpload(file: File): Promise<string> {
   return await getDownloadURL(snap.ref)
 }
 
-/** Save handler (draft/publish) */
+/** Save handler (draft / pending for approval) */
 async function submitNews(publish: boolean) {
   if (!form.value.title || !form.value.content) {
     alert('Title and content are required.')
@@ -176,26 +192,44 @@ async function submitNews(publish: boolean) {
     return
   }
 
-  const payload = {
+  const status: Status = publish
+    ? 'pending' // When publish is clicked, status is 'pending'
+    : isEditMode.value
+    ? existingStatus.value // For editing, keep the existing status
+    : 'draft' // For new posts, set it to 'draft'
+
+  const payload: any = {
     title: form.value.title,
     author: form.value.author,
     description: form.value.description,
     imageUrl: form.value.imageUrl,
     content: form.value.content,
-    published: publish,
-    createdAt: isEditMode.value ? form.value.createdAt ?? serverTimestamp() : serverTimestamp(),
+    status,
+    published: status === 'published',
+    createdAt: isEditMode.value
+      ? form.value.createdAt ?? serverTimestamp()
+      : serverTimestamp(),
     updatedAt: serverTimestamp(),
+    publishedAt: status === 'published' ? serverTimestamp() : null,
   }
 
   try {
     if (isEditMode.value && newsId.value) {
       await setDoc(doc(db, 'news', newsId.value), payload, { merge: true })
-      alert('News updated!')
-      router.push(`/Admin/super-admin/news/${newsId.value}`)
+      alert(
+        status === 'pending'
+          ? 'News changes submitted for approval.'
+          : 'News updated.'
+      )
+      router.push(`/Admin/faculty/news/${newsId.value}`)
     } else {
       const ref = await addDoc(collection(db, 'news'), payload)
-      alert(publish ? 'News published!' : 'News saved as draft.')
-      router.push(`/Admin/super-admin/news/${ref.id}`)
+      if (status === 'pending') {
+        alert('News submitted for Super Admin approval.')
+      } else {
+        alert('News saved as draft.')
+      }
+      router.push(`/Admin/faculty/news/${ref.id}`)
     }
   } catch (error) {
     console.error('❌ Failed to save news:', error)
@@ -206,9 +240,9 @@ async function submitNews(publish: boolean) {
 /** Close behavior */
 function handleClose() {
   if (isEditMode.value && newsId.value) {
-    router.push(`/Admin/super-admin/news/${newsId.value}`)
+    router.push(`/Admin/faculty/news/${newsId.value}`)
   } else {
-    router.push('/Admin/super-admin/news')
+    router.push('/Admin/faculty/news')
   }
 }
 </script>
@@ -218,7 +252,6 @@ function handleClose() {
 .bg-maroon { background-color: #740505; }
 .border-maroon { border-color: #740505; }
 
-/* Keep editor visuals consistent with the rest of the admin */
 .ProseMirror {
   outline: none !important;
   border: none !important;

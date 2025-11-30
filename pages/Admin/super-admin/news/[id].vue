@@ -9,17 +9,27 @@
         ← Back to News
       </UiButton>
 
-      <!-- If published: show Unpublish -->
+      <!-- If published: Unpublish -->
       <UiButton
-        v-if="news && news.published === true"
+        v-if="status === 'published'"
         class="bg-maroon text-white hover:opacity-90"
         :disabled="working"
         @click="unpublish"
       >
-        Unpublish
+        {{ working ? 'Unpublishing…' : 'Unpublish' }}
       </UiButton>
 
-      <!-- If draft: show Edit -->
+      <!-- If pending: Publish -->
+      <UiButton
+        v-else-if="status === 'pending'"
+        class="bg-maroon text-white hover:opacity-90"
+        :disabled="working"
+        @click="publish"
+      >
+        {{ working ? 'Publishing…' : 'Publish' }}
+      </UiButton>
+
+      <!-- Otherwise (draft): Edit -->
       <UiButton
         v-else-if="news"
         class="border border-maroon text-maroon bg-white hover:bg-maroon hover:text-white"
@@ -40,14 +50,24 @@
     <h1 class="text-3xl font-bold text-maroon">{{ news?.title }}</h1>
 
     <!-- Meta -->
-    <div class="text-sm text-gray-500">
+    <div class="text-sm text-gray-500 flex flex-wrap items-center gap-2">
       <span>Written by {{ news?.author || 'Unknown' }}</span>
       <span class="mx-2 text-gray-300">•</span>
       <span>{{ formatDate(news?.createdAt) }}</span>
+
+      <!-- Status pill -->
       <span
-        v-if="news && news.published === false"
+        v-if="status === 'draft'"
+        class="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700 border border-gray-200"
+      >
+        Draft
+      </span>
+      <span
+        v-else-if="status === 'pending'"
         class="ml-2 rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-800 border border-yellow-200"
-      >Draft</span>
+      >
+        Pending
+      </span>
     </div>
 
     <!-- Summary -->
@@ -59,16 +79,18 @@
 </template>
 
 <script setup lang="ts">
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+
+type Status = 'draft' | 'pending' | 'published'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,7 +101,7 @@ const news = ref<any>(null)
 const working = ref(false)
 
 function goBackToIndex() {
-  router.push('/Admin/super-admin/news')
+  router.push('/admin/super-admin/news')
 }
 
 onMounted(async () => {
@@ -88,27 +110,61 @@ onMounted(async () => {
   news.value = { id: newsId, ...snap.data() }
 })
 
+function getStatusFromNews(n: any): Status {
+  if (!n) return 'draft'
+  const raw = typeof n.status === 'string' ? n.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback for old docs that only use "published" boolean
+  return n.published === true ? 'published' : 'draft'
+}
+
+const status = computed<Status>(() => getStatusFromNews(news.value))
+
 async function unpublish() {
-  if (!news.value) return
+  if (!news.value || working.value) return
   working.value = true
   try {
     await updateDoc(doc(db, 'news', newsId), {
+      status: 'draft',
       published: false,
+      publishedAt: null,
       updatedAt: serverTimestamp(),
     })
-    // After unpublishing, send it back to the list (now visible under Drafts)
-    router.push('/Admin/super-admin/news')
+    news.value.status = 'draft'
+    news.value.published = false
+    news.value.publishedAt = null
+  } finally {
+    working.value = false
+  }
+}
+
+async function publish() {
+  if (!news.value || working.value) return
+  working.value = true
+  try {
+    await updateDoc(doc(db, 'news', newsId), {
+      status: 'published',
+      published: true,
+      publishedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    news.value.status = 'published'
+    news.value.published = true
+    // local display only; Firestore has Timestamp
+    news.value.publishedAt = new Date().toISOString()
   } finally {
     working.value = false
   }
 }
 
 function editNews() {
-  router.push(`/Admin/super-admin/news/add_news?id=${newsId}`)
+  router.push(`/admin/super-admin/news/add_news?id=${newsId}`)
 }
 
-function formatDate(ts: Timestamp | null) {
-  if (!ts?.toDate) return ''
+function formatDate(ts: Timestamp | null | undefined) {
+  if (!ts || typeof ts.toDate !== 'function') return ''
   return ts.toDate().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',

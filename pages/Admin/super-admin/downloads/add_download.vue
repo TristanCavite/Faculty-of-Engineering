@@ -130,6 +130,8 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 
+type Status = 'draft' | 'pending' | 'published'
+
 /* core */
 const router = useRouter()
 const route = useRoute()
@@ -185,12 +187,17 @@ async function loadForEdit() {
   form.content = data.content ?? ''
 }
 
-/** publish=true -> published: true (+publishedAt), else draft */
+/** publish = true  -> status = 'published'
+ *  publish = false -> status = 'draft'
+ */
 async function saveDownload(publish: boolean) {
   if (!isSuperAdmin.value || !isValid.value) return
   if (saving.value) return
   saving.value = true
   lastAction.value = publish ? 'publish' : 'save'
+
+  const status: Status = publish ? 'published' : 'draft'
+  const isPublished = status === 'published'
 
   try {
     if (isEditMode.value && editId.value) {
@@ -198,26 +205,37 @@ async function saveDownload(publish: boolean) {
         title: form.title,
         author: form.author,
         content: form.content,
-        published: publish,
-        publishedAt: publish ? serverTimestamp() : null,
+        status,
+        published: isPublished,
+        publishedAt: isPublished ? serverTimestamp() : null,
         updatedAt: serverTimestamp(),
         updatedBy: currentUser.value?.uid ?? null,
       })
-      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft saved.' })
+      showNotice({
+        type: 'success',
+        title: isPublished ? 'Download published.' : 'Draft saved.',
+      })
     } else {
       const ref = await addDoc(collection(db, 'downloads'), {
         title: form.title,
         author: form.author,
         content: form.content,
-        published: publish,
-        publishedAt: publish ? serverTimestamp() : null,
+        status,
+        published: isPublished,
+        publishedAt: isPublished ? serverTimestamp() : null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdBy: currentUser.value?.uid ?? null,
       })
-      // After creating, move into edit mode (same as Research UX)
-      await router.replace({ path: '/admin/super-admin/downloads/add_download', query: { id: ref.id } })
-      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft created.' })
+      // After creating, move into edit mode
+      await router.replace({
+        path: '/admin/super-admin/downloads/add_download',
+        query: { id: ref.id },
+      })
+      showNotice({
+        type: 'success',
+        title: isPublished ? 'Download published.' : 'Draft created.',
+      })
     }
   } catch (e) {
     console.error(e)

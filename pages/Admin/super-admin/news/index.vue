@@ -49,7 +49,8 @@
           :date="item.createdAt"
           :image="item.imageUrl || null"
           :summary="item.description || ''"
-          :published="item.published === true"
+          :published="getStatus(item) === 'published'"
+          :status="item.status"
           deletable
           @delete="confirmDelete(item)"
         >
@@ -80,7 +81,8 @@
           :date="item.createdAt"
           :image="item.imageUrl || null"
           :summary="item.description || ''"
-          :published="item.published === true"
+          :published="getStatus(item) === 'published'"
+          :status="item.status"
           deletable
           @delete="confirmDelete(item)"
         >
@@ -90,7 +92,10 @@
     </template>
 
     <!-- ============== NO MATCHES (search active, data exists) ============== -->
-    <div v-else-if="filteredNews.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div
+      v-else-if="filteredNews.length"
+      class="mt-10 rounded border p-10 text-center text-gray-500"
+    >
       No matches for your search.
     </div>
 
@@ -125,8 +130,14 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
 import {
-  collection, getDocs, doc, deleteDoc,
-  orderBy, query, type QueryDocumentSnapshot, type DocumentData
+  collection,
+  getDocs,
+  doc,
+  deleteDoc,
+  orderBy,
+  query,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
 import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
@@ -136,6 +147,8 @@ import { useSearch, buildKeyMatcher } from '@/composables/useSearch'
 const db = useFirestore()
 const router = useRouter()
 
+type Status = 'draft' | 'pending' | 'published'
+
 /* data */
 const news = ref<any[]>([])
 const selectedNews = ref<any>(null)
@@ -143,7 +156,7 @@ const showDeleteModal = ref(false)
 const isLoading = ref(true)
 
 /* filters */
-const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
+const selectedStatus = ref<'all' | 'published' | 'draft' | 'pending'>('published')
 const selectedYear = ref<string>('all')
 
 /* view */
@@ -152,8 +165,18 @@ const viewMode = ref<ViewMode>('grid')
 
 /* search */
 const searchQuery = ref('')
-// Search across typical fields: title, description, and content (if stored)
+
 const newsMatcher = buildKeyMatcher<any>(['title', 'description', 'content'])
+
+/* Helper: derive canonical status from document */
+function getStatus(item: any): Status {
+  const raw = typeof item.status === 'string' ? item.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // Fallback for old docs that only had `published` boolean
+  return item.published === true ? 'published' : 'draft'
+}
 
 /* load */
 onMounted(async () => {
@@ -183,9 +206,13 @@ const availableYears = computed(() => {
 const filteredNews = computed(() => {
   return news.value.filter((item) => {
     const d = item?.createdAt?.toDate?.() as Date | undefined
-    const yearOk = selectedYear.value === 'all' ? true : d?.getFullYear() === Number(selectedYear.value)
-    const status = item.published === true ? 'published' : 'draft'
-    const statusOk = selectedStatus.value === 'all' || selectedStatus.value === status
+    const yearOk =
+      selectedYear.value === 'all' ? true : d?.getFullYear() === Number(selectedYear.value)
+
+    const status = getStatus(item)
+    const statusOk =
+      selectedStatus.value === 'all' || selectedStatus.value === status
+
     return yearOk && statusOk
   })
 })

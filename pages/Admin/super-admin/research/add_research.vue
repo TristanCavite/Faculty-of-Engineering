@@ -21,7 +21,7 @@
           :disabled="loading"
           @click="saveResearch(false)"
         >
-          {{ loading && lastAction==='save' ? 'Saving…' : 'Save' }}
+          {{ loading && lastAction === 'save' ? 'Saving…' : 'Save' }}
         </UiButton>
 
         <UiButton
@@ -30,7 +30,7 @@
           :disabled="loading"
           @click="saveResearch(true)"
         >
-          {{ loading && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
+          {{ loading && lastAction === 'publish' ? 'Publishing…' : 'Publish' }}
         </UiButton>
       </div>
     </div>
@@ -40,11 +40,7 @@
     </div>
 
     <!-- FORM -->
-    <form
-      @submit.prevent="handleSubmit"
-      class="space-y-6"
-      novalidate
-    >
+    <form @submit.prevent="handleSubmit" class="space-y-6" novalidate>
       <!-- Title -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Title</label>
@@ -99,12 +95,30 @@
         <p class="mt-1 text-xs text-gray-500">This is a free-text field (not a list).</p>
       </div>
 
-      <!-- Cover Images -->
+      <!-- Cover Images (same layout as faculty) -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Cover Images</label>
         <input type="file" accept="image/*" multiple @change="handleFileChange" />
+
         <div v-if="previewUrls.length" class="mt-2 flex gap-4 overflow-x-auto">
-          <img v-for="(src, i) in previewUrls" :key="i" :src="src" class="h-40 rounded border object-cover" />
+          <div
+            v-for="(src, i) in previewUrls"
+            :key="i"
+            class="relative"
+          >
+            <img
+              :src="src"
+              class="h-40 rounded border object-cover"
+            />
+            <button
+              type="button"
+              class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-red-600 shadow hover:bg-white"
+              aria-label="Remove image"
+              @click="removeImageAt(i)"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
 
@@ -120,7 +134,6 @@
           @imageUpload="handleEditorImageUpload"
         />
       </div>
-      <!-- No bottom draft button (Save/Publish are in the header) -->
     </form>
   </div>
 </template>
@@ -137,6 +150,8 @@ definePageMeta({
   roles: ['super_admin'],
   layout: 'super-admin',
 })
+
+type Status = 'draft' | 'pending' | 'published'
 
 const db = useFirestore()
 const storage = useStorage()
@@ -165,24 +180,34 @@ const form = ref({
   date: '',
   description: '',
   content: '',
-  coverImages: [] as string[],
+  coverImages: [] as string[],   // existing uploaded URLs
   departmentId: '',
   researchers: '',
 })
 
 /* Local state */
-const imageFiles = ref<File[]>([])
-const previewUrls = ref<string[]>([])
+const imageFiles = ref<File[]>([])     // NEW files to upload (stacked)
+const previewUrls = ref<string[]>([])  // existing URLs + local object URLs
 const loading = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 const editorReady = ref(false)
 
+function refreshPreviews() {
+  const localPreviews = imageFiles.value.map((f) => URL.createObjectURL(f))
+  previewUrls.value = [...(form.value.coverImages || []), ...localPreviews]
+}
+
+/** Stack images instead of replacing previous ones (same as faculty) */
 function handleFileChange(e: Event) {
   const target = e.target as HTMLInputElement
   const files = target.files
   if (!files) return
-  imageFiles.value = Array.from(files)
-  previewUrls.value = imageFiles.value.map((f) => URL.createObjectURL(f))
+
+  const newFiles = Array.from(files)
+  imageFiles.value = [...imageFiles.value, ...newFiles]
+
+  refreshPreviews()
+  target.value = '' // allow re-selecting same file
 }
 
 /* Load existing research + departments */
@@ -202,14 +227,37 @@ onMounted(async () => {
         content: data.content || '',
         coverImages: data.coverImages || [],
         departmentId: data.departmentId || '',
-        researchers: Array.isArray(data.researchers) ? data.researchers.join(', ') : (data.researchers || ''),
+        researchers: Array.isArray(data.researchers)
+          ? data.researchers.join(', ')
+          : (data.researchers || ''),
       }
-      previewUrls.value = form.value.coverImages
     }
   }
+  refreshPreviews()
 })
 
-/** Save handler: publish=true => published, else draft */
+/** Remove image at index (same logic as faculty) */
+function removeImageAt(idx: number) {
+  const existingCount = form.value.coverImages.length
+
+  if (idx < existingCount) {
+    // remove from existing Firestore URLs
+    form.value.coverImages.splice(idx, 1)
+  } else {
+    // remove from newly-selected files
+    const localIndex = idx - existingCount
+    if (localIndex >= 0 && localIndex < imageFiles.value.length) {
+      imageFiles.value.splice(localIndex, 1)
+    }
+  }
+
+  refreshPreviews()
+}
+
+/** Save handler:
+ *  - publish = true  -> status = 'published'
+ *  - publish = false -> status = 'draft'
+ */
 async function saveResearch(publish: boolean) {
   if (!form.value.departmentId) {
     alert('Please select a department.')
@@ -222,29 +270,40 @@ async function saveResearch(publish: boolean) {
   try {
     const id = (route.query.id as string) || crypto.randomUUID()
 
-    // upload covers if new files chosen
-    let uploadedUrls: string[] = form.value.coverImages || []
+    // Start with existing coverImages (already saved)
+    let coverImages: string[] = [...(form.value.coverImages || [])]
+
+    // Upload ONLY the newly selected files and stack them
     if (imageFiles.value.length) {
-      uploadedUrls = []
+      const offset = coverImages.length
       for (const [index, file] of imageFiles.value.entries()) {
         const ext = file.name.split('.').pop() || 'jpg'
-        const path = `researches/${id}/cover_${index}.${ext}`
+        const path = `researches/${id}/cover_${offset + index}.${ext}`
         const fileRef = storageRef(storage, path)
         await uploadBytes(fileRef, file)
-        uploadedUrls.push(await getDownloadURL(fileRef))
+        coverImages.push(await getDownloadURL(fileRef))
       }
     }
 
+    const status: Status = publish ? 'published' : 'draft'
+
     const payload: any = {
       ...form.value,
-      coverImages: uploadedUrls,
-      published: publish,
-      publishedAt: publish ? serverTimestamp() : null,
+      coverImages,
+      status,
+      published: status === 'published',
+      publishedAt: status === 'published' ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
     }
     if (!isEditMode.value) payload.createdAt = serverTimestamp()
 
-    await setDoc(doc(db, 'researches', id), payload, { merge: true })
+    await setDoc(doc(collection(db, 'researches'), id), payload, { merge: true })
+
+    // reset local new files + previews to what is stored
+    form.value.coverImages = coverImages
+    imageFiles.value = []
+    refreshPreviews()
+
     router.push('/admin/super-admin/research')
   } catch (err) {
     console.error('Error saving research:', err)

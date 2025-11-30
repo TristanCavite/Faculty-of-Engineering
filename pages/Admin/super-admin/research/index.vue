@@ -51,6 +51,7 @@
           :summary="item.description || ''"
           :badge="departmentName(item.departmentId) || undefined"
           :published="item.published === true"
+          :status="item.status"
           deletable
           @delete="confirmDelete(item)"
         >
@@ -85,6 +86,7 @@
           :summary="composeSummary(item)"
           :badge="departmentName(item.departmentId) || undefined"
           :published="item.published === true"
+          :status="item.status"
           deletable
           @delete="confirmDelete(item)"
         >
@@ -96,12 +98,15 @@
     </template>
 
     <!-- ============== NO MATCHES (search active, data exists) ============== -->
-    <div v-else-if="filteredResearches.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div
+      v-else-if="filteredResearches.length"
+      class="mt-10 rounded border p-10 text-center text-gray-500"
+    >
       No matches for your search.
     </div>
 
     <!-- ============== EMPTY (no data at all) ============== -->
-    <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div class="mt-10 rounded border p-10 text-center text-gray-500" v-else>
       No researches yet. Click “+ Add Research” to create your first one.
     </div>
 
@@ -145,6 +150,8 @@ import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
 import ManageSearchBar from '@/components/ManageSearchBar.vue'
 import { useSearch, buildKeyMatcher, normalize } from '@/composables/useSearch'
 
+type Status = 'draft' | 'pending' | 'published'
+
 const db = useFirestore()
 const router = useRouter()
 
@@ -156,13 +163,23 @@ const isLoading = ref(true)
 
 /* filters */
 const selectedYear = ref<string>('all')
-const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
+const selectedStatus = ref<'all' | Status>('published')
 const viewMode = ref<'grid' | 'list'>('grid')
 
 /* department map */
 const departmentNames = ref<Record<string, string>>({})
 function departmentName(id?: string) {
   return (id && departmentNames.value[id]) || ''
+}
+
+/* helper: normalize status for each doc (handles old docs without status) */
+function normalizeStatus(rawStatus: any, publishedFlag: any): Status {
+  const raw = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback for legacy docs that only have "published" boolean
+  return publishedFlag === true ? 'published' : 'draft'
 }
 
 /* search */
@@ -174,7 +191,7 @@ const researchMatcher = (item: any, q: string) => {
   const baseOk = baseMatcher(item, q)
   const deptHay = normalize(departmentName(item.departmentId))
   const tokens = q.split(' ').filter(Boolean)
-  const deptOk = tokens.length ? tokens.every(t => deptHay.includes(t)) : true
+  const deptOk = tokens.length ? tokens.every((t) => deptHay.includes(t)) : true
   return baseOk || deptOk
 }
 
@@ -187,9 +204,15 @@ onMounted(async () => {
       getDocs(collection(db, 'departments')),
     ])
 
-    researches.value = researchSnap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
+    const rawResearches = researchSnap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
       id: d.id,
       ...d.data(),
+    }))
+
+    // attach normalized status to each item
+    researches.value = rawResearches.map((it: any) => ({
+      ...it,
+      status: normalizeStatus(it.status, it.published),
     }))
 
     const map: Record<string, string> = {}
@@ -216,10 +239,11 @@ const availableYears = computed(() => {
 /* filters: status -> year */
 const listByStatus = computed(() => {
   if (selectedStatus.value === 'all') return researches.value
-  return researches.value.filter((it) =>
-    selectedStatus.value === 'published' ? it.published === true : it.published !== true
+  return researches.value.filter(
+    (it) => (it.status as Status | undefined) === selectedStatus.value,
   )
 })
+
 const filteredResearches = computed(() => {
   if (selectedYear.value === 'all') return listByStatus.value
   const y = Number(selectedYear.value)
@@ -230,7 +254,11 @@ const filteredResearches = computed(() => {
 })
 
 /* search on top of filters */
-const searchedResearches = useSearch(computed(() => filteredResearches.value), searchQuery, researchMatcher)
+const searchedResearches = useSearch(
+  computed(() => filteredResearches.value),
+  searchQuery,
+  researchMatcher,
+)
 
 /* helpers */
 function composeSummary(it: any) {

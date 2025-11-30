@@ -1,4 +1,3 @@
-<!-- pages/admin/super-admin/downloads/add_download.vue -->
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8 md:pt-10 space-y-6">
     <!-- Top bar -->
@@ -27,7 +26,7 @@
           {{ saving && lastAction==='save' ? 'Saving…' : 'Save' }}
         </UiButton>
 
-        <!-- Publish -->
+        <!-- Publish (actually: set status = pending) -->
         <UiButton
           type="button"
           class="bg-maroon text-white hover:opacity-90"
@@ -54,16 +53,8 @@
       </div>
     </transition>
 
-    <!-- Access guard -->
-    <div
-      v-if="!loadingRole && !isSuperAdmin"
-      class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
-    >
-      You don’t have access to this page. Super Admin only.
-    </div>
-
-    <!-- Form -->
-    <form v-else class="space-y-6" @submit.prevent>
+    <!-- Form (no more access guard) -->
+    <form class="space-y-6" @submit.prevent>
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Title -->
         <div>
@@ -113,9 +104,9 @@
 
 <script setup lang="ts">
 definePageMeta({
-   middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -130,6 +121,8 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 
+type Status = 'draft' | 'pending' | 'published'
+
 /* core */
 const router = useRouter()
 const route = useRoute()
@@ -140,22 +133,8 @@ const currentUser = useCurrentUser()
 const editId = computed(() => (route.query.id ? String(route.query.id) : null))
 const isEditMode = computed(() => !!editId.value)
 
-/* access */
-const isSuperAdmin = ref(false)
-const loadingRole = ref(true)
-
-onMounted(async () => {
-  if (!currentUser.value) return router.push('/login')
-  try {
-    const userRef = doc(db, 'users', currentUser.value.uid)
-    const snap = await getDoc(userRef)
-    const role = (snap.exists() && (snap.data() as any).role) || ''
-    isSuperAdmin.value = String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
-  } finally {
-    loadingRole.value = false
-  }
-  if (isSuperAdmin.value && isEditMode.value) await loadForEdit()
-})
+/* existing status (for edits) */
+const existingStatus = ref<Status>('draft')
 
 /* notices */
 type NoticeType = 'success' | 'error'
@@ -174,50 +153,83 @@ const isValid = computed(() => !!form.title && !!form.author)
 const saving = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 
+/* Load for edit */
 async function loadForEdit() {
   if (!editId.value) return
   const dref = doc(db, 'downloads', editId.value)
   const snap = await getDoc(dref)
-  if (!snap.exists()) return router.replace('/admin/super-admin/downloads')
+  if (!snap.exists()) return router.replace('/admin/faculty/downloads')
   const data = snap.data() as any
   form.title = data.title ?? ''
   form.author = data.author ?? ''
   form.content = data.content ?? ''
+
+  // derive status (handles old docs without status)
+  const raw = typeof data.status === 'string' ? data.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    existingStatus.value = raw as Status
+  } else {
+    existingStatus.value = data.published === true ? 'published' : 'draft'
+  }
 }
 
-/** publish=true -> published: true (+publishedAt), else draft */
+onMounted(async () => {
+  if (!currentUser.value) return router.push('/login')
+  if (isEditMode.value) await loadForEdit()
+})
+
+/** saveDownload:
+ *  - Save  -> draft (new) or keep existing status (edit)
+ *  - Publish -> pending (never directly published by faculty)
+ *  - After success → go to /admin/faculty/downloads/[id]
+ */
 async function saveDownload(publish: boolean) {
-  if (!isSuperAdmin.value || !isValid.value) return
+  if (!isValid.value) return
   if (saving.value) return
   saving.value = true
   lastAction.value = publish ? 'publish' : 'save'
 
+  // Status logic for faculty
+  const status: Status = publish
+    ? 'pending'
+    : isEditMode.value
+      ? existingStatus.value
+      : 'draft'
+
+  const commonPayload = {
+    title: form.title,
+    author: form.author,
+    content: form.content,
+    status,
+    published: status === 'published',              // faculty never sets this true
+    publishedAt: status === 'published' ? serverTimestamp() : null,
+    updatedAt: serverTimestamp(),
+    updatedBy: currentUser.value?.uid ?? null,
+  }
+
   try {
     if (isEditMode.value && editId.value) {
-      await updateDoc(doc(db, 'downloads', editId.value), {
-        title: form.title,
-        author: form.author,
-        content: form.content,
-        published: publish,
-        publishedAt: publish ? serverTimestamp() : null,
-        updatedAt: serverTimestamp(),
-        updatedBy: currentUser.value?.uid ?? null,
+      // UPDATE
+      await updateDoc(doc(db, 'downloads', editId.value), commonPayload)
+      showNotice({
+        type: 'success',
+        title: status === 'pending' ? 'Download submitted for approval.' : 'Draft saved.',
       })
-      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft saved.' })
+      // 👉 Go to the show page
+      router.push(`/admin/faculty/downloads/${editId.value}`)
     } else {
+      // CREATE
       const ref = await addDoc(collection(db, 'downloads'), {
-        title: form.title,
-        author: form.author,
-        content: form.content,
-        published: publish,
-        publishedAt: publish ? serverTimestamp() : null,
+        ...commonPayload,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
         createdBy: currentUser.value?.uid ?? null,
       })
-      // After creating, move into edit mode (same as Research UX)
-      await router.replace({ path: '/admin/super-admin/downloads/add_download', query: { id: ref.id } })
-      showNotice({ type: 'success', title: publish ? 'Download published.' : 'Draft created.' })
+      showNotice({
+        type: 'success',
+        title: status === 'pending' ? 'Download submitted for approval.' : 'Draft created.',
+      })
+      // 👉 Go to the show page of the new download
+      router.push(`/admin/faculty/downloads/${ref.id}`)
     }
   } catch (e) {
     console.error(e)
@@ -228,7 +240,7 @@ async function saveDownload(publish: boolean) {
 }
 
 function goBack() {
-  router.push('/admin/super-admin/downloads')
+  router.push('/admin/faculty/downloads')
 }
 
 /* Prevent toolbar buttons from submitting form */

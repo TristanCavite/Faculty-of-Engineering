@@ -13,20 +13,9 @@
         Back to Research
       </UiButton>
 
-      <!-- Show UNPUBLISH only if this research is published -->
+      <!-- Faculty: can ONLY edit draft researches -->
       <UiButton
-        v-if="research?.published === true"
-        type="button"
-        class="bg-maroon text-white hover:opacity-90"
-        :disabled="busy"
-        @click="unpublish"
-      >
-        {{ busy ? 'Unpublishing…' : 'Unpublish' }}
-      </UiButton>
-
-      <!-- Otherwise show EDIT (drafts can be edited) -->
-      <UiButton
-        v-else
+        v-if="status === 'draft'"
         type="button"
         class="bg-maroon text-white hover:opacity-90"
         @click="editResearch"
@@ -49,12 +38,17 @@
 
         <template v-if="deptName">
           <span class="text-gray-400">•</span>
-          <span><span class="font-medium text-gray-700">Department:</span> {{ deptName }}</span>
+          <span>
+            <span class="font-medium text-gray-700">Department:</span> {{ deptName }}
+          </span>
         </template>
 
         <template v-if="research.researchers">
           <span class="text-gray-400">•</span>
-          <span><span class="font-medium text-gray-700">Researchers:</span> {{ research.researchers }}</span>
+          <span>
+            <span class="font-medium text-gray-700">Researchers:</span>
+            {{ research.researchers }}
+          </span>
         </template>
       </div>
 
@@ -120,26 +114,27 @@
 
 <script setup lang="ts">
 definePageMeta({
-   middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { ArrowLeft, Pen, ChevronRight, ChevronLeft } from 'lucide-vue-next'
 
 const db = useFirestore()
 const route = useRoute()
 const router = useRouter()
 
+type Status = 'draft' | 'pending' | 'published'
+
 const research = ref<any>(null)
 const coverImages = ref<string[]>([])
 const currentSlide = ref(0)
 const deptName = ref<string>('')
-const busy = ref(false)
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 async function loadDepartmentName(departmentId?: string) {
@@ -147,7 +142,8 @@ async function loadDepartmentName(departmentId?: string) {
   const snap = await getDoc(doc(db, 'departments', departmentId))
   if (snap.exists()) {
     const data: any = snap.data()
-    deptName.value = data?.name ?? data?.departmentName ?? data?.title ?? ''
+    deptName.value =
+      data?.name ?? data?.departmentName ?? data?.title ?? ''
   }
 }
 
@@ -160,6 +156,18 @@ async function loadResearch() {
     await loadDepartmentName(research.value.departmentId)
   }
 }
+
+/** Canonical status of this research */
+const status = computed<Status>(() => {
+  const r = research.value
+  if (!r) return 'draft'
+  const raw = typeof r.status === 'string' ? r.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback for old docs that only have `published` boolean
+  return r.published === true ? 'published' : 'draft'
+})
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
@@ -177,7 +185,8 @@ function nextSlide() {
 function prevSlide() {
   if (coverImages.value.length) {
     currentSlide.value =
-      (currentSlide.value - 1 + coverImages.value.length) % coverImages.value.length
+      (currentSlide.value - 1 + coverImages.value.length) %
+      coverImages.value.length
   }
 }
 function setSlide(i: number) {
@@ -185,46 +194,29 @@ function setSlide(i: number) {
 }
 
 function goBack() {
-  router.push('/admin/super-admin/research')
+  router.push('/admin/faculty/research')
 }
 function editResearch() {
-  router.push({ path: '/admin/super-admin/research/add_research', query: { id: route.params.id as string } })
-}
-
-/** Turn a published research back into a draft */
-async function unpublish() {
-  if (!research.value || busy.value) return
-  busy.value = true
-  try {
-    const id = route.params.id as string
-    await updateDoc(doc(db, 'researches', id), {
-      published: false,
-      publishedAt: null,
-      updatedAt: serverTimestamp(),
-    })
-    // reflect immediately
-    research.value.published = false
-    research.value.publishedAt = null
-  } catch (e) {
-    console.error(e)
-    alert('Failed to unpublish. Please try again.')
-  } finally {
-    busy.value = false
-  }
+  router.push({
+    path: '/admin/faculty/research/add_research',
+    query: { id: route.params.id as string },
+  })
 }
 
 onMounted(() => {
   loadResearch()
   intervalId = setInterval(nextSlide, 4000)
 })
-onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
+onUnmounted(() => {
+  if (intervalId) clearInterval(intervalId)
+})
 </script>
 
 <style scoped>
 .text-maroon { color: #740505; }
 .bg-maroon { background-color: #740505; }
 
-/* Outline pill that flips to maroon with white text on hover (ensures white text) */
+/* Outline pill that flips to maroon with white text on hover */
 .btn-outline-maroon {
   background-color: #ffffff;
   border: 1px solid #740505;

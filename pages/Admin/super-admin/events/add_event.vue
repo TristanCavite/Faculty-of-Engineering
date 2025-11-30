@@ -155,6 +155,7 @@ const EVENT_TYPES = [
 ] as const
 
 type EventType = '' | 'university' | 'faculty' | 'students' | 'department' | 'general'
+type Status = 'draft' | 'pending' | 'published'
 
 const form = ref({
   title: '',
@@ -171,6 +172,13 @@ const previewUrls = ref<string[]>([])
 const loading = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 const editorReady = ref(false)
+const existingStatus = ref<Status>('draft')
+
+function deriveStatus(data: any): Status {
+  const raw = typeof data?.status === 'string' ? data.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') return raw as Status
+  return data?.published === true ? 'published' : 'draft'
+}
 
 /** File input */
 function handleFileChange(e: Event) {
@@ -198,12 +206,18 @@ onMounted(async () => {
         coverImages: data.coverImages || [],
         eventType: (data.eventType as EventType) || '',
       }
+      existingStatus.value = deriveStatus(data)
       previewUrls.value = form.value.coverImages
     }
   }
 })
 
-/** Save helper (publish=true => published, else draft) */
+/** Save helper
+ *  - super admin Publish => status 'published'
+ *  - Save:
+ *      - new event   => 'draft'
+ *      - editing     => keep whatever status it had
+ */
 async function saveEvent(publish: boolean) {
   if (loading.value) return
   loading.value = true
@@ -225,16 +239,23 @@ async function saveEvent(publish: boolean) {
       }
     }
 
+    const status: Status = publish
+      ? 'published'
+      : isEditMode.value
+        ? existingStatus.value
+        : 'draft'
+
     const payload: any = {
       ...form.value,
       coverImages: uploadedUrls,
-      published: publish,
-      publishedAt: publish ? serverTimestamp() : null,
+      status,
+      published: status === 'published',
+      publishedAt: status === 'published' ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
     }
     if (!isEditMode.value) payload.createdAt = serverTimestamp()
 
-    await setDoc(doc(db, 'events', id), payload, { merge: true })
+    await setDoc(doc(collection(db, 'events'), id), payload, { merge: true })
     router.push('/admin/super-admin/events')
   } catch (err) {
     console.error('Error saving event:', err)

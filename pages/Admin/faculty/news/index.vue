@@ -5,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage News</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/news/add_news')"
+        @click="$router.push('/admin/faculty/news/add_news')"
       >
         + Add News
       </UiButton>
@@ -44,14 +44,14 @@
           v-for="item in searchedNews"
           :key="item.id"
           view="grid"
-          :to="`/admin/super-admin/news/${item.id}`"
+          :to="`/admin/faculty/news/${item.id}`"
           :title="item.title"
           :date="item.createdAt"
           :image="item.imageUrl || null"
           :summary="item.description || ''"
           :published="item.published === true"
-          deletable
-          @delete="confirmDelete(item)"
+          :status="item.status"
+          :deletable="false"
         >
           <template #delete-icon><X class="h-4 w-4" /></template>
 
@@ -75,14 +75,14 @@
           v-for="item in searchedNews"
           :key="item.id"
           view="list"
-          :to="`/admin/super-admin/news/${item.id}`"
+          :to="`/admin/faculty/news/${item.id}`"
           :title="item.title"
           :date="item.createdAt"
           :image="item.imageUrl || null"
           :summary="item.description || ''"
           :published="item.published === true"
-          deletable
-          @delete="confirmDelete(item)"
+          :status="item.status"
+          :deletable="false"
         >
           <template #delete-icon><X class="h-4 w-4" /></template>
         </ManageItem>
@@ -143,7 +143,7 @@ const showDeleteModal = ref(false)
 const isLoading = ref(true)
 
 /* filters */
-const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
+const selectedStatus = ref<'all' | 'published' | 'draft' | 'pending'>('published')
 const selectedYear = ref<string>('all')
 
 /* view */
@@ -152,10 +152,11 @@ const viewMode = ref<ViewMode>('grid')
 
 /* search */
 const searchQuery = ref('')
+
 // Search across typical fields: title, description, and content (if stored)
 const newsMatcher = buildKeyMatcher<any>(['title', 'description', 'content'])
 
-/* load */
+// load data
 onMounted(async () => {
   try {
     const qRef = query(collection(db, 'news'), orderBy('createdAt', 'desc'))
@@ -169,7 +170,7 @@ onMounted(async () => {
   }
 })
 
-/* years for YearFilter (desc) */
+// years for YearFilter (desc)
 const availableYears = computed(() => {
   const years = new Set<number>()
   news.value.forEach((item) => {
@@ -179,13 +180,13 @@ const availableYears = computed(() => {
   return Array.from(years).sort((a, b) => b - a)
 })
 
-/* filtered list (status + year) */
+// filtered list (status + year)
 const filteredNews = computed(() => {
   return news.value.filter((item) => {
     const d = item?.createdAt?.toDate?.() as Date | undefined
     const yearOk = selectedYear.value === 'all' ? true : d?.getFullYear() === Number(selectedYear.value)
-    const status = item.published === true ? 'published' : 'draft'
-    const statusOk = selectedStatus.value === 'all' || selectedStatus.value === status
+    const status = item.published === true ? 'published' : (item.status || 'draft') // Ensure "pending" is handled properly
+    const statusOk = selectedStatus.value === 'all' || selectedStatus.value === status || (selectedStatus.value === 'pending' && status === 'pending')
     return yearOk && statusOk
   })
 })
@@ -197,10 +198,12 @@ const searchedNews = useSearch(computed(() => filteredNews.value), searchQuery, 
 function readMore(id: string) {
   router.push(`/admin/super-admin/news/${id}`)
 }
+
 function confirmDelete(item: any) {
   selectedNews.value = item
   showDeleteModal.value = true
 }
+
 async function deleteNews() {
   if (!selectedNews.value) return
   await deleteDoc(doc(db, 'news', selectedNews.value.id))

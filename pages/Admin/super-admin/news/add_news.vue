@@ -90,11 +90,13 @@ import {
 } from 'firebase/firestore'
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
- definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
-  });
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
+
+type Status = 'draft' | 'pending' | 'published'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,6 +106,7 @@ const storage = useFirebaseStorage()
 /** Page state */
 const isEditMode = ref(false)
 const newsId = ref<string | null>(null)
+const existingStatus = ref<Status>('draft')
 
 /** Form model */
 const form = ref<{
@@ -122,6 +125,16 @@ const form = ref<{
   content: '',
 })
 
+/** Helper: normalize status from old/new docs */
+function deriveStatus(data: any): Status {
+  const raw = typeof data?.status === 'string' ? data.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback from old boolean-only docs
+  return data?.published === true ? 'published' : 'draft'
+}
+
 /** Prefill in edit mode via ?id=... */
 onMounted(async () => {
   const id = (route.query.id as string) || null
@@ -139,6 +152,7 @@ onMounted(async () => {
     form.value.imageUrl = data.imageUrl || ''
     form.value.content = data.content || ''
     form.value.createdAt = data.createdAt
+    existingStatus.value = deriveStatus(data)
   }
 })
 
@@ -176,14 +190,27 @@ async function submitNews(publish: boolean) {
     return
   }
 
-  const payload = {
+  // For super admin:
+  //  - Publish => status 'published'
+  //  - Save:
+  //      * new article  => 'draft'
+  //      * editing      => keep existing status
+  const status: Status = publish
+    ? 'published'
+    : isEditMode.value
+      ? existingStatus.value
+      : 'draft'
+
+  const payload: any = {
     title: form.value.title,
     author: form.value.author,
     description: form.value.description,
     imageUrl: form.value.imageUrl,
     content: form.value.content,
-    published: publish,
+    status,
+    published: status === 'published',
     createdAt: isEditMode.value ? form.value.createdAt ?? serverTimestamp() : serverTimestamp(),
+    publishedAt: status === 'published' ? serverTimestamp() : null,
     updatedAt: serverTimestamp(),
   }
 

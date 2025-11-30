@@ -1,4 +1,3 @@
-<!-- pages/admin/super-admin/downloads/index.vue -->
 <template>
   <div class="mx-auto max-w-7xl space-y-6 p-6">
     <!-- Header -->
@@ -6,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage Downloads</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/downloads/add_download')"
+        @click="$router.push('/admin/faculty/downloads/add_download')"
       >
         + Add Download
       </UiButton>
@@ -39,17 +38,22 @@
     <!-- ============== CONTENT (after search) ============== -->
     <template v-else-if="searchedDownloads.length">
       <!-- GRID -->
-      <div v-if="viewMode === 'grid'" id="downloads-list" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div
+        v-if="viewMode === 'grid'"
+        id="downloads-list"
+        class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+      >
         <ManageItem
           v-for="item in searchedDownloads"
           :key="item.id"
           view="grid"
-          :to="`/admin/super-admin/downloads/${item.id}`"
+          :to="`/admin/faculty/downloads/${item.id}`"
           :title="item.title"
           :date="formatDate(primaryDate(item))"
           :summary="composeSummary(item)"
           :published="item.published === true"
-          deletable
+          :status="getStatusFromDownload(item)"
+          :deletable="false"
           @delete="confirmDelete(item)"
         >
           <template #delete-icon><X class="h-4 w-4" /></template>
@@ -74,12 +78,13 @@
           v-for="item in searchedDownloads"
           :key="item.id"
           view="list"
-          :to="`/admin/super-admin/downloads/${item.id}`"
+          :to="`/admin/faculty/downloads/${item.id}`"
           :title="item.title"
           :date="formatDate(primaryDate(item))"
           :summary="composeSummary(item)"
           :published="item.published === true"
-          deletable
+          :status="getStatusFromDownload(item)"
+          :deletable="false"
           @delete="confirmDelete(item)"
         >
           <template #delete-icon><X class="h-4 w-4" /></template>
@@ -88,12 +93,15 @@
     </template>
 
     <!-- ============== NO MATCHES (search active, data exists) ============== -->
-    <div v-else-if="filteredDownloads.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div
+      v-else-if="filteredDownloads.length"
+      class="mt-10 rounded border p-10 text-center text-gray-500"
+    >
       No matches for your search.
     </div>
 
     <!-- ============== EMPTY ============== -->
-    <div v-else class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div class="mt-10 rounded border p-10 text-center text-gray-500" v-else>
       No downloads yet. Click “+ Add Download” to create your first entry.
     </div>
 
@@ -114,9 +122,9 @@
 
 <script setup lang="ts">
 definePageMeta({
-    middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
 import {
@@ -128,15 +136,17 @@ import {
   query,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore'
+import type { DocumentData } from 'firebase/firestore'
 import { X } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFirestore } from 'vuefire'
-import type { DocumentData } from 'firebase/firestore'
 
 import ManageItemSkeleton from '@/components/ManageItemSkeleton.vue'
 import ManageSearchBar from '@/components/ManageSearchBar.vue'
 import { useSearch, buildKeyMatcher } from '@/composables/useSearch'
+
+type Status = 'draft' | 'pending' | 'published'
 
 const db = useFirestore()
 const router = useRouter()
@@ -150,7 +160,7 @@ const isLoading = ref(true)
 
 /* filters */
 const selectedYear = ref<string>('all')
-const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
+const selectedStatus = ref<'all' | 'published' | 'draft' | 'pending'>('published')
 const viewMode = ref<'grid' | 'list'>('grid')
 
 /* search */
@@ -199,6 +209,18 @@ function composeSummary(it: any) {
   return `${by} — ${prev}`
 }
 
+/** Derive a normalized status from each document.
+ *  - Prefer the explicit `status` field
+ *  - Fallback to `published` boolean for old docs
+ */
+function getStatusFromDownload(it: any): Status {
+  const raw = typeof it?.status === 'string' ? it.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  return it?.published === true ? 'published' : 'draft'
+}
+
 /* years (desc) */
 const availableYears = computed(() => {
   const years = new Set<number>()
@@ -226,10 +248,11 @@ onMounted(async () => {
 /* filters */
 const listByStatus = computed(() => {
   if (selectedStatus.value === 'all') return downloads.value
-  return downloads.value.filter((it) =>
-    selectedStatus.value === 'published' ? it.published === true : it.published !== true
+  return downloads.value.filter(
+    (it) => getStatusFromDownload(it) === selectedStatus.value
   )
 })
+
 const filteredDownloads = computed(() => {
   if (selectedYear.value === 'all') return listByStatus.value
   const y = Number(selectedYear.value)
@@ -240,11 +263,15 @@ const filteredDownloads = computed(() => {
 })
 
 /* search on top of filters */
-const searchedDownloads = useSearch(computed(() => filteredDownloads.value), searchQuery, downloadMatcher)
+const searchedDownloads = useSearch(
+  computed(() => filteredDownloads.value),
+  searchQuery,
+  downloadMatcher
+)
 
 /* actions */
 function readMore(id: string) {
-  router.push(`/admin/super-admin/downloads/${id}`)
+  router.push(`/admin/faculty/downloads/${id}`)
 }
 function confirmDelete(item: any) {
   selectedDownload.value = item

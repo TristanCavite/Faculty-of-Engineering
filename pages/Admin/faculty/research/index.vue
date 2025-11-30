@@ -1,4 +1,3 @@
-<!-- pages/admin/super-admin/research/index.vue -->
 <template>
   <div class="mx-auto max-w-7xl space-y-6 p-6">
     <!-- Header -->
@@ -6,7 +5,7 @@
       <h1 class="text-2xl font-bold">Manage Researches</h1>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
-        @click="$router.push('/admin/super-admin/research/add_research')"
+        @click="$router.push('/admin/faculty/research/add_research')"
       >
         + Add Research
       </UiButton>
@@ -44,14 +43,15 @@
           v-for="item in searchedResearches"
           :key="item.id"
           view="grid"
-          :to="`/admin/super-admin/research/${item.id}`"
+          :to="`/admin/faculty/research/${item.id}`"
           :title="item.title"
           :date="item.date"
           :image="(item.coverImages && item.coverImages[0]) || undefined"
           :summary="item.description || ''"
           :badge="departmentName(item.departmentId) || undefined"
-          :published="item.published === true"
-          deletable
+          :published="getStatus(item) === 'published'"
+          :status="item.status"
+          :deletable="false"
           @delete="confirmDelete(item)"
         >
           <template #delete-icon>
@@ -78,14 +78,15 @@
           v-for="item in searchedResearches"
           :key="item.id"
           view="list"
-          :to="`/admin/super-admin/research/${item.id}`"
+          :to="`/admin/faculty/research/${item.id}`"
           :title="item.title"
           :date="item.date"
           :image="(item.coverImages && item.coverImages[0]) || undefined"
           :summary="composeSummary(item)"
           :badge="departmentName(item.departmentId) || undefined"
-          :published="item.published === true"
-          deletable
+          :published="getStatus(item) === 'published'"
+          :status="item.status"
+          :deletable="false"
           @delete="confirmDelete(item)"
         >
           <template #delete-icon>
@@ -96,7 +97,10 @@
     </template>
 
     <!-- ============== NO MATCHES (search active, data exists) ============== -->
-    <div v-else-if="filteredResearches.length" class="mt-10 rounded border p-10 text-center text-gray-500">
+    <div
+      v-else-if="filteredResearches.length"
+      class="mt-10 rounded border p-10 text-center text-gray-500"
+    >
       No matches for your search.
     </div>
 
@@ -122,9 +126,9 @@
 
 <script setup lang="ts">
 definePageMeta({
-   middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
 import { ref, onMounted, computed, watch } from 'vue'
@@ -148,6 +152,8 @@ import { useSearch, buildKeyMatcher, normalize } from '@/composables/useSearch'
 const db = useFirestore()
 const router = useRouter()
 
+type Status = 'draft' | 'pending' | 'published'
+
 /* state */
 const researches = ref<any[]>([])
 const selectedResearch = ref<any>(null)
@@ -156,7 +162,7 @@ const isLoading = ref(true)
 
 /* filters */
 const selectedYear = ref<string>('all')
-const selectedStatus = ref<'all' | 'published' | 'draft'>('all')
+const selectedStatus = ref<'all' | 'published' | 'draft' | 'pending'>('published')
 const viewMode = ref<'grid' | 'list'>('grid')
 
 /* department map */
@@ -174,8 +180,20 @@ const researchMatcher = (item: any, q: string) => {
   const baseOk = baseMatcher(item, q)
   const deptHay = normalize(departmentName(item.departmentId))
   const tokens = q.split(' ').filter(Boolean)
-  const deptOk = tokens.length ? tokens.every(t => deptHay.includes(t)) : true
+  const deptOk = tokens.length ? tokens.every((t) => deptHay.includes(t)) : true
   return baseOk || deptOk
+}
+
+/** Canonical status helper */
+function getStatus(it: any): Status {
+  const raw = typeof it?.status === 'string' ? it.status.toLowerCase() : ''
+
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+
+  // fallback for old docs that only have `published` boolean
+  return it?.published === true ? 'published' : 'draft'
 }
 
 /* load */
@@ -187,15 +205,18 @@ onMounted(async () => {
       getDocs(collection(db, 'departments')),
     ])
 
-    researches.value = researchSnap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => ({
-      id: d.id,
-      ...d.data(),
-    }))
+    researches.value = researchSnap.docs.map(
+      (d: QueryDocumentSnapshot<DocumentData>) => ({
+        id: d.id,
+        ...d.data(),
+      }),
+    )
 
     const map: Record<string, string> = {}
     deptSnap.docs.forEach((d) => {
       const data: any = d.data()
-      map[d.id] = data?.name ?? data?.departmentName ?? data?.title ?? 'Unnamed Department'
+      map[d.id] =
+        data?.name ?? data?.departmentName ?? data?.title ?? 'Unnamed Department'
     })
     departmentNames.value = map
   } finally {
@@ -216,10 +237,10 @@ const availableYears = computed(() => {
 /* filters: status -> year */
 const listByStatus = computed(() => {
   if (selectedStatus.value === 'all') return researches.value
-  return researches.value.filter((it) =>
-    selectedStatus.value === 'published' ? it.published === true : it.published !== true
-  )
+
+  return researches.value.filter((it) => getStatus(it) === selectedStatus.value)
 })
+
 const filteredResearches = computed(() => {
   if (selectedYear.value === 'all') return listByStatus.value
   const y = Number(selectedYear.value)
@@ -230,19 +251,25 @@ const filteredResearches = computed(() => {
 })
 
 /* search on top of filters */
-const searchedResearches = useSearch(computed(() => filteredResearches.value), searchQuery, researchMatcher)
+const searchedResearches = useSearch(
+  computed(() => filteredResearches.value),
+  searchQuery,
+  researchMatcher,
+)
 
 /* helpers */
 function composeSummary(it: any) {
   const dept = departmentName(it.departmentId)
   const res = it.researchers ? `Researchers: ${it.researchers}` : ''
   const desc = it.description || ''
-  return [dept ? `Department: ${dept}` : '', res, desc].filter(Boolean).join(' • ')
+  return [dept ? `Department: ${dept}` : '', res, desc]
+    .filter(Boolean)
+    .join(' • ')
 }
 
 /* actions */
 function readMore(id: string) {
-  router.push(`/admin/super-admin/research/${id}`)
+  router.push(`/admin/faculty/research/${id}`)
 }
 function confirmDelete(item: any) {
   selectedResearch.value = item

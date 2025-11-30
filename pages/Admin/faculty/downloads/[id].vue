@@ -1,49 +1,31 @@
-<!-- pages/admin/super-admin/downloads/[id].vue -->
+<!-- pages/admin/faculty/downloads/[id].vue -->
 <template>
   <div class="mx-auto max-w-6xl px-4 py-10">
     <!-- Top controls (upper-left) -->
     <div class="mb-6 flex items-center gap-3">
       <UiButton
-       variant="outline"
-            class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
-        @click="goBack"
+        variant="outline"
+        class="border-maroon text-maroon hover:!border-maroon hover:bg-maroon hover:!text-white"
         type="button"
+        @click="goBack"
       >
         Back to Downloads
       </UiButton>
 
-      <!-- If published => Unpublish, else Edit -->
+      <!-- Edit is ONLY visible for drafts -->
       <UiButton
-        v-if="item?.published === true"
-        class="bg-maroon text-white hover:opacity-90"
-        :disabled="saving"
-        @click="unpublish"
-        type="button"
-      >
-        {{ saving ? 'Unpublishing…' : 'Unpublish' }}
-      </UiButton>
-
-      <UiButton
-        v-else
+        v-if="status === 'draft'"
         variant="outline"
+        type="button"
         class="border-maroon text-maroon hover:bg-maroon hover:text-white"
         @click="edit"
-        type="button"
       >
         Edit
       </UiButton>
     </div>
 
-    <!-- Guard -->
-    <div
-      v-if="!loadingRole && !isSuperAdmin"
-      class="rounded border border-red-200 bg-red-50 p-4 text-red-700"
-    >
-      You don’t have access to this page. Super Admin only.
-    </div>
-
     <!-- Content -->
-    <div v-else-if="docReady" class="space-y-4">
+    <div v-if="docReady" class="space-y-4">
       <h1 class="text-3xl font-bold text-maroon">{{ item?.title }}</h1>
 
       <p class="text-sm text-gray-600">
@@ -66,50 +48,52 @@
 
 <script setup lang="ts">
 definePageMeta({
-    middleware: ['auth'],
-     roles: ['faculty'],
-    layout: "faculty",
+  middleware: ['auth'],
+  roles: ['faculty'],
+  layout: 'faculty',
 })
 
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCurrentUser, useFirestore } from 'vuefire'
-import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, Timestamp } from 'firebase/firestore'
+
+type Status = 'draft' | 'pending' | 'published'
 
 const route = useRoute()
 const router = useRouter()
 const db = useFirestore()
 const currentUser = useCurrentUser()
 
-/* ---------- access control ---------- */
-const isSuperAdmin = ref(false)
-const loadingRole = ref(true)
-
-onMounted(async () => {
-  if (!currentUser.value) return router.push('/login')
-  try {
-    const uref = doc(db, 'users', currentUser.value.uid)
-    const snap = await getDoc(uref)
-    const role = (snap.exists() && (snap.data() as any).role) || ''
-    isSuperAdmin.value = String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
-  } finally {
-    loadingRole.value = false
-  }
-  if (isSuperAdmin.value) await fetchDoc()
-})
-
 /* ---------- load doc ---------- */
 const item = ref<any>(null)
-const saving = ref(false)
 const docReady = computed(() => !!item.value)
 
 async function fetchDoc() {
   const id = String(route.params.id)
   const dref = doc(db, 'downloads', id)
   const snap = await getDoc(dref)
-  if (!snap.exists()) return router.replace('/admin/super-admin/downloads')
+  if (!snap.exists()) return router.replace('/admin/faculty/downloads')
   item.value = { id, ...snap.data() }
 }
+
+onMounted(async () => {
+  if (!currentUser.value) return router.push('/login')
+  await fetchDoc()
+})
+
+/* ---------- status helper ---------- */
+function deriveStatus(it: any): Status {
+  if (!it) return 'draft'
+  const raw = typeof it.status === 'string' ? it.status.toLowerCase() : ''
+  if (raw === 'draft' || raw === 'pending' || raw === 'published') {
+    return raw as Status
+  }
+  // fallback for old docs without status
+  return it.published === true ? 'published' : 'draft'
+}
+
+const status = computed<Status>(() => deriveStatus(item.value))
 
 /* ---------- computed helpers ---------- */
 function asDate(v: any): Date | null {
@@ -124,35 +108,23 @@ function primaryDate(it: any): Date | null {
 function formatDate(d?: Date | Timestamp | null) {
   const real = d && (d as Timestamp).toDate ? (d as Timestamp).toDate() : (d as Date)
   if (!real) return '—'
-  return real.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: '2-digit' })
+  return real.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: '2-digit',
+  })
 }
 
 /* ---------- actions ---------- */
 function goBack() {
-  router.push('/admin/super-admin/downloads')
+  router.push('/admin/faculty/downloads')
 }
 
 function edit() {
   router.push({
-    path: '/admin/super-admin/downloads/add_download',
+    path: '/admin/faculty/downloads/add_download',
     query: { id: String(route.params.id) },
   })
-}
-
-async function unpublish() {
-  if (!item.value || saving.value) return
-  saving.value = true
-  try {
-    await updateDoc(doc(db, 'downloads', String(route.params.id)), {
-      published: false,
-      publishedAt: null,
-      updatedAt: serverTimestamp(),
-      updatedBy: currentUser.value?.uid ?? null,
-    })
-    router.push('/admin/super-admin/downloads')
-  } finally {
-    saving.value = false
-  }
 }
 
 /* make all links open in new tab inside rich HTML */
