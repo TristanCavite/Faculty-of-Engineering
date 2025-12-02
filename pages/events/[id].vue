@@ -1,9 +1,9 @@
 <template>
   <main class="relative">
-    <div class="max-w-5xl px-5 pt-3 pb-4 mx-auto space-y-3">
+    <div class="max-w-5xl px-5 pt-3 pb-4 mx-auto space-y-3 border rounded bg-neutral-50">
       <!-- Back -->
       <UiButton
-        class="flex flex-row text-sm font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
+        class="flex flex-row text-xs font-semibold text-gray-800 transition bg-gray-200 rounded md:text-sm font-montserrat hover:scale-105 hover:bg-gray-300"
         @click="goBack"
       >
         <svg
@@ -14,7 +14,7 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="lucide lucide-move-left-icon lucide-move-left size-5"
+          class="lucide lucide-move-left-icon lucide-move-left md:size-5 size-3"
         >
           <path d="M6 8L2 12L6 16" />
           <path d="M2 12H22" />

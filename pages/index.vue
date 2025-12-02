@@ -45,21 +45,21 @@
 
     <!-- EVENTS -->
     <div class="py-5 mx-auto md:max-w-7xl md:px-4 md:py-10">
-      <div class="text-center md:pt-4">
-        <span class="text-xl font-extrabold tracking-wide uppercase font-playfair text-maroon md:text-5xl">
+      <div class="mt-4 mb-4 text-center md:mb-8">
+        <span class="text-2xl font-extrabold tracking-wide uppercase font-playfair text-maroon md:text-5xl">
           EVENTS
         </span>
       </div>
 
       <!-- Filter bar -->
-      <EventFilter v-model="typeFilter" class="ml-4"/>
+      <EventFilter v-model="typeFilter" class="ml-4 md:ml-10"/>
     
       <!-- Layout -->
-      <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[minmax(680px,1fr)_420px] md:px-10">
+      <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[1fr_420px] md:px-10">
         <!-- LEFT: Events -->
         <div class="flex flex-col w-full space-y-6">
           <template v-if="filteredEvents.length > 0">
-            <div v-for="event in filteredEvents" :key="event.id" class="w-full pt-5 pb-5 bg-white border rounded-lg shadow-2xl">
+            <div v-for="event in filteredEvents" :key="event.id" class="w-full pt-5 pb-5 border rounded-lg bg-neutral-50">
               <span class="pl-5 pr-5 font-semibold text-red-800 text-md font-inter md:text-2xl">
                 EVENT DATE: {{ formatEventDate(event.date, event.dateEnd) }}
               </span>
@@ -132,33 +132,34 @@
         </div>
 
         <!-- RIGHT: Calendar + More -->
-        <div class="hidden md:block md:w-[420px] md:justify-self-end">
-          <div class="space-y-5">
-            <div class="flex justify-end mb-4 mr-5">
+        <div class="hidden md:block">
+          <div class="flex flex-col">
+            <div class="flex justify-end">
               <UiButton
                 v-if="selectedDate"
-                class="px-3 py-1 text-white bg-red-900 rounded text-medium font-montserrat hover:bg-red-900 hover:scale-105"
+                class="px-2 py-1 mb-4 font-semibold text-white bg-red-900 rounded font-montserrat hover:bg-red-900 hover:scale-105"
                 @click="selectedDate = null"
               >
                 Clear Date Filter
               </UiButton>
             </div>
-            <div class="p-6 bg-white border shadow-xl rounded-xl">
+            <div class="mb-5 border rounded-xl">
               <ClientOnly>
                 <AutoFitCalendar
                 :attributes="calendarAttributes"
                 v-model:selectedDate="selectedDate"
                 @date-click="handleDayClick"
+                class="custom-calendar"
                 />
               </ClientOnly>
             </div>
 
 
-            <div v-if="oldEvents.length" class="p-6 bg-white border shadow-xl rounded-xl border-neutral-200">
+            <div v-if="oldEvents.length" class="p-6 border bg-neutral-50 rounded-xl">
               <div class="flex items-center justify-between gap-2 pb-3 mb-3 text-red-900 border-b cursor-pointer border-neutral-300 hover:scale-105" @click="goToMore" role="button" aria-label="View all events">
                 <div class="flex items-center text-lg font-semibold ">
                   <Clock class="w-5 h-5" />
-                  <span class="ml-2">Past Events</span>
+                  <span class="ml-2">More Events</span>
                 </div>
                 <ChevronRight class="w-4 h-4" />
               </div>
@@ -169,7 +170,7 @@
                     <span class="font-medium text-left text-gray-800 truncate w-72 hover:text-red-900">
                       {{ ev.title }}
                     </span>
-                    <span class="text-gray-500 shrink-0 hover:text-red-900">{{ miniDate(ev.createdAt || ev.date) }}</span>
+                    <span class="text-gray-500 shrink-0">{{ miniDate(ev.createdAt || ev.date) }}</span>
                   </UiButton>
                 </li>
               </ul>
@@ -347,6 +348,38 @@ function readMore(id: string) { router.push(`/events/${id}`) }
 function goToMore() { router.push("/events/moreEvents") }
 </script>
 
-<style>
+<style scoped>
 /* *{ outline: 1px solid red; } */
+
+/* Calendar background */
+:deep(.custom-calendar .vc-container) {
+  background-color: #fafafa !important; /* neutral-50 */
+  border-radius: 0.75rem;
+}
+
+/* Hover on day cells - multiple selectors for broader coverage */
+:deep(.custom-calendar .vc-day:hover),
+:deep(.custom-calendar .vc-day:hover .vc-day-content),
+:deep(.custom-calendar .vc-day button:hover),
+:deep(.custom-calendar .vc-highlight:hover) {
+  background-color: #fee2e2 !important; /* red-100 */
+  cursor: pointer !important;
+}
+
+/* Selected date */
+:deep(.custom-calendar .vc-day.is-selected) {
+  background-color: #7f1d1d !important; /* red-900 */
+  color: white;
+}
+
+/* Today's date */
+:deep(.custom-calendar .vc-day.is-today) {
+  background-color: #fca5a5 !important; /* red-300 */
+}
+
+/* Weekday labels */
+:deep(.custom-calendar .vc-weekday) {
+  color: #7f1d1d !important; /* red-900 */
+  font-weight: 600;
+}
 </style>

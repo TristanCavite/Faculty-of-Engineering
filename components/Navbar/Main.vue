@@ -1,5 +1,5 @@
 <template>
-  <header class="fixed z-10 w-full" :style="hideNav ? 'height: 120px;' : 'height: 30px;'">
+  <header class="fixed z-20 w-full" :style="hideNav ? 'height: 120px;' : 'height: 30px;'">
     <!-- Header Bar with Search and Social Icons -->
     <transition name="header-sticky">
       <div class="bg-white border-gray-200 header-bar-transition">
