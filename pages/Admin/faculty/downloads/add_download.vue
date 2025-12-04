@@ -1,59 +1,18 @@
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-8 md:pt-10 space-y-6">
-    <!-- Top bar -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-maroon">
-        {{ isEditMode ? 'Edit Download' : 'Add Download' }}
-      </h1>
-
-      <div class="flex items-center gap-2">
-        <!-- Close (back) -->
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          @click="goBack"
-        >
-          Close
-        </UiButton>
-
-        <!-- Save (draft) -->
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          :disabled="saving || !isValid"
-          @click="saveDownload(false)"
-        >
-          {{ saving && lastAction==='save' ? 'Saving…' : 'Save' }}
-        </UiButton>
-
-        <!-- Publish (actually: set status = pending) -->
-        <UiButton
-          type="button"
-          class="bg-maroon text-white hover:opacity-90"
-          :disabled="saving || !isValid"
-          @click="saveDownload(true)"
-        >
-          {{ saving && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
-        </UiButton>
-      </div>
-    </div>
-
-    <!-- Notice -->
-    <transition name="fade">
-      <div
-        v-if="notice"
-        class="flex items-start gap-3 rounded border p-3"
-        :class="notice.type === 'success'
-          ? 'border-green-200 bg-green-50 text-green-800'
-          : 'border-red-200 bg-red-50 text-red-800'"
-        role="status"
-      >
-        <span class="font-medium">{{ notice.title }}</span>
-        <button class="ml-auto opacity-70 hover:opacity-100" @click="notice = null">✕</button>
-      </div>
-    </transition>
-
-    <!-- Form (no more access guard) -->
+  <AddContentLayout
+    createTitle="Add Download"
+    editTitle="Edit Download"
+    :isEditMode="isEditMode"
+    :saving="saving"
+    :lastAction="lastAction"
+    :notice="notice"
+    :isValid="isValid"
+    @close="goBack"
+    @save="saveDownload(false)"
+    @publish="saveDownload(true)"
+    @clear-notice="notice = null"
+  >
+    <!-- Form body -->
     <form class="space-y-6" @submit.prevent>
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Title -->
@@ -99,7 +58,7 @@
         </p>
       </div>
     </form>
-  </div>
+  </AddContentLayout>
 </template>
 
 <script setup lang="ts">
@@ -111,6 +70,7 @@ definePageMeta({
 
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import { useCurrentUser, useFirestore } from 'vuefire'
 import {
   addDoc,
@@ -139,17 +99,22 @@ const existingStatus = ref<Status>('draft')
 /* notices */
 type NoticeType = 'success' | 'error'
 const notice = ref<{ type: NoticeType; title: string } | null>(null)
-let hideTimer: any = null
+let hideTimer: ReturnType<typeof setTimeout> | null = null
 function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
   notice.value = n
-  clearTimeout(hideTimer)
+  if (hideTimer) clearTimeout(hideTimer)
   hideTimer = setTimeout(() => (notice.value = null), ms)
 }
 
 /* form */
 const initialState = { title: '', author: '', content: '' }
 const form = reactive({ ...initialState })
-const isValid = computed(() => !!form.title && !!form.author)
+
+// required fields → control button disabled state
+const isValid = computed(
+  () => !!form.title.trim() && !!form.author.trim()
+)
+
 const saving = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 
@@ -181,7 +146,6 @@ onMounted(async () => {
 /** saveDownload:
  *  - Save  -> draft (new) or keep existing status (edit)
  *  - Publish -> pending (never directly published by faculty)
- *  - After success → go to /admin/faculty/downloads/[id]
  */
 async function saveDownload(publish: boolean) {
   if (!isValid.value) return
@@ -201,7 +165,8 @@ async function saveDownload(publish: boolean) {
     author: form.author,
     content: form.content,
     status,
-    published: status === 'published',              // faculty never sets this true
+    // faculty never directly publish
+    published: status === 'published',
     publishedAt: status === 'published' ? serverTimestamp() : null,
     updatedAt: serverTimestamp(),
     updatedBy: currentUser.value?.uid ?? null,
@@ -209,27 +174,37 @@ async function saveDownload(publish: boolean) {
 
   try {
     if (isEditMode.value && editId.value) {
-      // UPDATE
+      // UPDATE EXISTING
       await updateDoc(doc(db, 'downloads', editId.value), commonPayload)
+
       showNotice({
         type: 'success',
-        title: status === 'pending' ? 'Download submitted for approval.' : 'Draft saved.',
+        title:
+          status === 'pending'
+            ? 'Download submitted for approval.'
+            : 'Draft saved.',
       })
-      // 👉 Go to the show page
-      router.push(`/admin/faculty/downloads/${editId.value}`)
+
+      existingStatus.value = status
     } else {
-      // CREATE
-      const ref = await addDoc(collection(db, 'downloads'), {
+      // CREATE NEW
+      await addDoc(collection(db, 'downloads'), {
         ...commonPayload,
         createdAt: serverTimestamp(),
         createdBy: currentUser.value?.uid ?? null,
       })
+
       showNotice({
         type: 'success',
-        title: status === 'pending' ? 'Download submitted for approval.' : 'Draft created.',
+        title:
+          status === 'pending'
+            ? 'Download submitted for approval.'
+            : 'Draft created.',
       })
-      // 👉 Go to the show page of the new download
-      router.push(`/admin/faculty/downloads/${ref.id}`)
+
+      // Clear fields so user won't accidentally create duplicates
+      Object.assign(form, initialState)
+      existingStatus.value = 'draft'
     }
   } catch (e) {
     console.error(e)
@@ -253,13 +228,9 @@ function suppressButtonSubmit(event: Event) {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
 .text-maroon { color:#740505; }
 .bg-maroon { background-color:#740505; }
 
-/* outline pill identical to Research page */
 .btn-outline-maroon {
   background-color: #ffffff;
   border: 1px solid #740505;
@@ -270,4 +241,8 @@ function suppressButtonSubmit(event: Event) {
   background-color: #740505;
   color: #ffffff !important;
 }
+
+/* keep fade for any scoped transitions in this file (editor tip, etc.) */
+.fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

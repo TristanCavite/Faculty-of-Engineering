@@ -1,41 +1,37 @@
+<!-- pages/admin/super-admin/news/add_news.vue -->
 <template>
-  <div class="mx-auto max-w-6xl space-y-6 p-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
-        {{ isEditMode ? "Edit News" : "Create News" }}
-      </h1>
-
-      <!-- Actions -->
-      <div class="space-x-2">
-        <UiButton
-          class="text-maroon border-maroon hover:bg-maroon border bg-white hover:text-white"
-          @click="handleClose"
-        >
-          Close
-        </UiButton>
-        <UiButton
-          class="text-maroon border-maroon hover:bg-maroon border bg-white hover:text-white"
-          @click="submitNews(false)"
-        >
-          Save
-        </UiButton>
-        <UiButton class="bg-maroon text-white hover:opacity-90" @click="submitNews(true)">
-          Publish
-        </UiButton>
-      </div>
-    </div>
-
+  <AddContentLayout
+    createTitle="Create News"
+    editTitle="Edit News"
+    :isEditMode="isEditMode"
+    :saving="saving"
+    :lastAction="lastAction"
+    :notice="notice"
+    :validationError="validationError"
+    :isValid="isValid"
+    @close="handleClose"
+    @save="submitNews(false)"
+    @publish="submitNews(true)"
+    @clear-notice="notice = null"
+  >
     <!-- Basic fields -->
     <div class="grid gap-6 md:grid-cols-2">
       <div>
         <label class="mb-1 block font-semibold">Title</label>
-        <input v-model="form.title" type="text" class="input input-bordered w-full" />
+        <input
+          v-model="form.title"
+          type="text"
+          class="input input-bordered w-full"
+        />
       </div>
 
       <div>
         <label class="mb-1 block font-semibold">Author</label>
-        <input v-model="form.author" type="text" class="input input-bordered w-full" />
+        <input
+          v-model="form.author"
+          type="text"
+          class="input input-bordered w-full"
+        />
       </div>
 
       <!-- Cover Image -->
@@ -47,22 +43,30 @@
           accept="image/*"
           @change="handleCoverImage"
         />
-        <img
+        <div
           v-if="form.imageUrl"
-          :src="form.imageUrl"
-          class="mt-2 h-48 w-full rounded object-cover"
-        />
+          class="mt-2 flex justify-center overflow-hidden rounded border bg-gray-100"
+        >
+          <img
+            :src="form.imageUrl"
+            class="max-h-96 w-auto object-contain p-2"
+          />
+        </div>
       </div>
 
       <!-- Description -->
       <div class="md:col-span-2">
         <label class="mb-1 block font-semibold">Description</label>
-        <textarea v-model="form.description" rows="3" class="textarea textarea-bordered w-full" />
+        <textarea
+          v-model="form.description"
+          rows="3"
+          class="textarea textarea-bordered w-full"
+        />
       </div>
     </div>
 
     <!-- Content (Editor is always shown) -->
-    <div>
+    <div class="mt-4">
       <label class="mb-2 block font-semibold">Content</label>
       <UiTiptapEditor
         v-model="form.content"
@@ -71,12 +75,13 @@
         @image-upload="handleEditorImageUpload"
       />
     </div>
-  </div>
+  </AddContentLayout>
 </template>
 
 <script setup lang="ts">
+import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import UiTiptapEditor from '@/components/UiTiptapEditor.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore, useFirebaseStorage } from 'vuefire'
 import {
@@ -109,20 +114,44 @@ const newsId = ref<string | null>(null)
 const existingStatus = ref<Status>('draft')
 
 /** Form model */
-const form = ref<{
-  title: string
-  author: string
-  description: string
-  imageUrl: string
-  content: string
-  published?: boolean
-  createdAt?: Timestamp
-}>({
+const initialForm = {
   title: '',
   author: '',
   description: '',
   imageUrl: '',
   content: '',
+  createdAt: undefined as Timestamp | undefined,
+}
+type NewsForm = typeof initialForm
+
+const form = ref<NewsForm>({ ...initialForm })
+
+/** Saving + header state */
+const saving = ref(false)
+const lastAction = ref<'save' | 'publish' | null>(null)
+
+/** Validation + notices (for AddContentLayout) */
+const validationError = ref<string | null>(null)
+
+type NoticeType = 'success' | 'error'
+const notice = ref<{ type: NoticeType; title: string } | null>(null)
+let hideTimer: ReturnType<typeof setTimeout> | null = null
+function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
+  notice.value = n
+  if (hideTimer) clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => (notice.value = null), ms)
+}
+
+/** Required fields → enable/disable Save/Publish */
+const isValid = computed<boolean>(() => {
+  const v = form.value
+  return !!(
+    v.title.trim() &&
+    v.author.trim() &&
+    v.description.trim() &&
+    v.imageUrl &&
+    v.content.trim()
+  )
 })
 
 /** Helper: normalize status from old/new docs */
@@ -167,7 +196,7 @@ async function handleCoverImage(e: Event) {
     form.value.imageUrl = await getDownloadURL(snap.ref)
   } catch (err) {
     console.error('❌ Cover image upload failed:', err)
-    alert('Failed to upload cover image.')
+    showNotice({ type: 'error', title: 'Failed to upload cover image.' })
   }
 }
 
@@ -179,24 +208,22 @@ async function handleEditorImageUpload(file: File): Promise<string> {
   return await getDownloadURL(snap.ref)
 }
 
-/** Save handler (draft/publish) */
+/** Save handler (draft/publish) – stays on page, shows notice, clears form for new items */
 async function submitNews(publish: boolean) {
-  if (!form.value.title || !form.value.content) {
-    alert('Title and content are required.')
-    return
-  }
-  if (!form.value.imageUrl) {
-    alert('Please upload a cover image.')
-    return
-  }
+  if (saving.value) return
+  lastAction.value = publish ? 'publish' : 'save'
 
-  // For super admin:
-  //  - Publish => status 'published'
-  //  - Save:
-  //      * new article  => 'draft'
-  //      * editing      => keep existing status
+  if (!isValid.value) {
+    validationError.value =
+      'Please fill in all required fields and upload a cover image.'
+    lastAction.value = null
+    return
+  }
+  validationError.value = null
+  saving.value = true
+
   const status: Status = publish
-    ? 'published'
+    ? 'published' // super admin publish = live
     : isEditMode.value
       ? existingStatus.value
       : 'draft'
@@ -209,28 +236,53 @@ async function submitNews(publish: boolean) {
     content: form.value.content,
     status,
     published: status === 'published',
-    createdAt: isEditMode.value ? form.value.createdAt ?? serverTimestamp() : serverTimestamp(),
+    createdAt: isEditMode.value
+      ? form.value.createdAt ?? serverTimestamp()
+      : serverTimestamp(),
     publishedAt: status === 'published' ? serverTimestamp() : null,
     updatedAt: serverTimestamp(),
   }
 
   try {
     if (isEditMode.value && newsId.value) {
+      // UPDATE EXISTING
       await setDoc(doc(db, 'news', newsId.value), payload, { merge: true })
-      alert('News updated!')
-      router.push(`/Admin/super-admin/news/${newsId.value}`)
+      existingStatus.value = status
+
+      const msg =
+        status === 'published'
+          ? 'News published.'
+          : 'News updated.'
+      showNotice({ type: 'success', title: msg })
+
+      // stay on page (no router.push)
     } else {
-      const ref = await addDoc(collection(db, 'news'), payload)
-      alert(publish ? 'News published!' : 'News saved as draft.')
-      router.push(`/Admin/super-admin/news/${ref.id}`)
+      // CREATE NEW
+      await addDoc(collection(db, 'news'), payload)
+      existingStatus.value = status
+
+      const msg =
+        status === 'published'
+          ? 'News published.'
+          : 'News saved as draft.'
+      showNotice({ type: 'success', title: msg })
+
+      // clear form so user can add a fresh item
+      form.value = { ...initialForm }
     }
   } catch (error) {
     console.error('❌ Failed to save news:', error)
-    alert('Failed to save news. Check your Firestore rules/connection.')
+    showNotice({
+      type: 'error',
+      title: 'Failed to save news. Check your Firestore rules/connection.',
+    })
+  } finally {
+    saving.value = false
+    lastAction.value = null
   }
 }
 
-/** Close behavior */
+/** Close behavior (only when user explicitly hits Close) */
 function handleClose() {
   if (isEditMode.value && newsId.value) {
     router.push(`/Admin/super-admin/news/${newsId.value}`)

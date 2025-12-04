@@ -1,61 +1,46 @@
 <template>
-  <div class="mx-auto max-w-6xl space-y-6 p-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
-        {{ isEditMode ? "Edit News" : "Create News" }}
-      </h1>
-
-      <!-- Actions -->
-      <div class="space-x-2">
-        <UiButton
-          class="text-maroon border-maroon hover:bg-maroon border bg-white hover:text-white"
-          @click="handleClose"
-        >
-          Close
-        </UiButton>
-        <UiButton
-          class="text-maroon border-maroon hover:bg-maroon border bg-white hover:text-white"
-          @click="submitNews(false)"
-        >
-          Save
-        </UiButton>
-        <UiButton
-          class="bg-maroon text-white hover:opacity-90"
-          @click="submitNews(true)"
-        >
-          Publish
-        </UiButton>
-      </div>
-    </div>
-
+  <AddContentLayout
+    createTitle="Create News"
+    editTitle="Edit News"
+    :isEditMode="isEditMode"
+    :saving="saving"
+    :lastAction="lastAction"
+    :notice="notice"
+    :validationError="validationError"
+    :isValid="isValid"
+    @close="handleClose"
+    @save="submitNews(false)"
+    @publish="submitNews(true)"
+    @clear-notice="notice = null"
+  >
     <!-- Basic fields -->
     <div class="grid gap-6 md:grid-cols-2">
       <div>
         <label class="mb-1 block font-semibold">Title</label>
-        <input v-model="form.title" type="text" class="input input-bordered w-full" />
+        <input
+          v-model="form.title"
+          type="text"
+          class="input input-bordered w-full"
+        />
       </div>
 
       <div>
         <label class="mb-1 block font-semibold">Author</label>
-        <input v-model="form.author" type="text" class="input input-bordered w-full" />
+        <input
+          v-model="form.author"
+          type="text"
+          class="input input-bordered w-full"
+        />
       </div>
 
-      <!-- Cover Image -->
+      <!-- Cover Image (single-image upload component) -->
       <div class="md:col-span-2">
         <label class="mb-1 block font-semibold">Cover Image</label>
-        <input
-          type="file"
-          class="file-input file-input-bordered w-full"
-          accept="image/*"
-          @change="handleCoverImage"
-        />
-        <div v-if="form.imageUrl" class="mt-2 flex justify-center rounded border bg-gray-100 overflow-hidden">
-          <img
-            :src="form.imageUrl"
-            class="max-h-96 w-auto object-contain p-2"
-          />
-        </div>
+       <UiSingleImageUpload
+  :image-url="form.imageUrl"
+  @change="handleCoverImage"
+/>
+
       </div>
 
       <!-- Description -->
@@ -70,7 +55,7 @@
     </div>
 
     <!-- Content (Editor is always shown) -->
-    <div>
+    <div class="mt-4">
       <label class="mb-2 block font-semibold">Content</label>
       <UiTiptapEditor
         v-model="form.content"
@@ -79,12 +64,14 @@
         @image-upload="handleEditorImageUpload"
       />
     </div>
-  </div>
+  </AddContentLayout>
 </template>
 
 <script setup lang="ts">
+import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import UiTiptapEditor from '@/components/UiTiptapEditor.vue'
-import { ref, onMounted } from 'vue'
+import UiSingleImageUpload from '@/components/Admin/UiSingleImageUpload.vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore, useFirebaseStorage } from 'vuefire'
 import {
@@ -111,24 +98,44 @@ const storage = useFirebaseStorage()
 
 type Status = 'draft' | 'pending' | 'published'
 
-const isEditMode = ref(false)
-const newsId = ref<string | null>(null)
-const existingStatus = ref<Status>('draft')
-
-const form = ref<{
-  title: string
-  author: string
-  description: string
-  imageUrl: string
-  content: string
-  createdAt?: Timestamp
-}>({
+/* form state */
+const initialForm = {
   title: '',
   author: '',
   description: '',
   imageUrl: '',
   content: '',
-})
+  createdAt: undefined as Timestamp | undefined,
+}
+const form = ref({ ...initialForm })
+
+const isEditMode = ref(false)
+const newsId = ref<string | null>(null)
+const existingStatus = ref<Status>('draft')
+
+/* saving state */
+const saving = ref(false)
+const lastAction = ref<'save' | 'publish' | null>(null)
+
+/* validation + notices */
+const validationError = ref<string | null>(null)
+
+type NoticeType = 'success' | 'error'
+const notice = ref<{ type: NoticeType; title: string } | null>(null)
+let hideTimer: ReturnType<typeof setTimeout> | null = null
+function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
+  notice.value = n
+  if (hideTimer) clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => (notice.value = null), ms)
+}
+
+/** for disabling Save/Publish buttons */
+const isValid = computed(
+  () =>
+    !!form.value.title.trim() &&
+    !!form.value.content.trim() &&
+    !!form.value.imageUrl,
+)
 
 function deriveStatus(data: any): Status {
   const raw = typeof data.status === 'string' ? data.status.toLowerCase() : ''
@@ -158,7 +165,7 @@ onMounted(async () => {
   existingStatus.value = deriveStatus(data)
 })
 
-/** Cover image upload to Storage */
+/** Cover image upload to Storage (now driven by AdminSingleImageUpload) */
 async function handleCoverImage(e: Event) {
   const file = (e.target as HTMLInputElement)?.files?.[0]
   if (!file) return
@@ -169,7 +176,10 @@ async function handleCoverImage(e: Event) {
     form.value.imageUrl = await getDownloadURL(snap.ref)
   } catch (err) {
     console.error('❌ Cover image upload failed:', err)
-    alert('Failed to upload cover image.')
+    showNotice({
+      type: 'error',
+      title: 'Failed to upload cover image.',
+    })
   }
 }
 
@@ -181,22 +191,36 @@ async function handleEditorImageUpload(file: File): Promise<string> {
   return await getDownloadURL(snap.ref)
 }
 
-/** Save handler (draft / pending for approval) */
-async function submitNews(publish: boolean) {
-  if (!form.value.title || !form.value.content) {
-    alert('Title and content are required.')
-    return
+function validateForm(): boolean {
+  if (!form.value.title.trim() || !form.value.content.trim()) {
+    validationError.value = 'Title and content are required.'
+    return false
   }
   if (!form.value.imageUrl) {
-    alert('Please upload a cover image.')
+    validationError.value = 'Please upload a cover image.'
+    return false
+  }
+  validationError.value = null
+  return true
+}
+
+/** Save handler (draft / pending for approval) */
+async function submitNews(publish: boolean) {
+  if (saving.value) return
+  lastAction.value = publish ? 'publish' : 'save'
+
+  if (!validateForm()) {
+    lastAction.value = null
     return
   }
 
+  saving.value = true
+
   const status: Status = publish
-    ? 'pending' // When publish is clicked, status is 'pending'
+    ? 'pending'
     : isEditMode.value
-    ? existingStatus.value // For editing, keep the existing status
-    : 'draft' // For new posts, set it to 'draft'
+    ? existingStatus.value
+    : 'draft'
 
   const payload: any = {
     title: form.value.title,
@@ -216,24 +240,34 @@ async function submitNews(publish: boolean) {
   try {
     if (isEditMode.value && newsId.value) {
       await setDoc(doc(db, 'news', newsId.value), payload, { merge: true })
-      alert(
+      existingStatus.value = status
+
+      const msg =
         status === 'pending'
           ? 'News changes submitted for approval.'
           : 'News updated.'
-      )
-      router.push(`/Admin/faculty/news/${newsId.value}`)
+      showNotice({ type: 'success', title: msg })
     } else {
-      const ref = await addDoc(collection(db, 'news'), payload)
-      if (status === 'pending') {
-        alert('News submitted for Super Admin approval.')
-      } else {
-        alert('News saved as draft.')
-      }
-      router.push(`/Admin/faculty/news/${ref.id}`)
+      await addDoc(collection(db, 'news'), payload)
+      existingStatus.value = status
+
+      const msg =
+        status === 'pending'
+          ? 'News submitted for Super Admin approval.'
+          : 'News saved as draft.'
+      showNotice({ type: 'success', title: msg })
+
+      form.value = { ...initialForm }
     }
   } catch (error) {
     console.error('❌ Failed to save news:', error)
-    alert('Failed to save news. Check your Firestore rules/connection.')
+    showNotice({
+      type: 'error',
+      title: 'Failed to save news. Check your Firestore rules/connection.',
+    })
+  } finally {
+    saving.value = false
+    lastAction.value = null
   }
 }
 

@@ -1,59 +1,18 @@
 <!-- pages/admin/super-admin/downloads/add_download.vue -->
 <template>
-  <div class="mx-auto max-w-6xl px-4 py-8 md:pt-10 space-y-6">
-    <!-- Top bar -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-maroon">
-        {{ isEditMode ? 'Edit Download' : 'Add Download' }}
-      </h1>
-
-      <div class="flex items-center gap-2">
-        <!-- Close (back) -->
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          @click="goBack"
-        >
-          Close
-        </UiButton>
-
-        <!-- Save (draft) -->
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          :disabled="saving || !isValid"
-          @click="saveDownload(false)"
-        >
-          {{ saving && lastAction==='save' ? 'Saving…' : 'Save' }}
-        </UiButton>
-
-        <!-- Publish -->
-        <UiButton
-          type="button"
-          class="bg-maroon text-white hover:opacity-90"
-          :disabled="saving || !isValid"
-          @click="saveDownload(true)"
-        >
-          {{ saving && lastAction==='publish' ? 'Publishing…' : 'Publish' }}
-        </UiButton>
-      </div>
-    </div>
-
-    <!-- Notice -->
-    <transition name="fade">
-      <div
-        v-if="notice"
-        class="flex items-start gap-3 rounded border p-3"
-        :class="notice.type === 'success'
-          ? 'border-green-200 bg-green-50 text-green-800'
-          : 'border-red-200 bg-red-50 text-red-800'"
-        role="status"
-      >
-        <span class="font-medium">{{ notice.title }}</span>
-        <button class="ml-auto opacity-70 hover:opacity-100" @click="notice = null">✕</button>
-      </div>
-    </transition>
-
+  <AddContentLayout
+    createTitle="Add Download"
+    editTitle="Edit Download"
+    :isEditMode="isEditMode"
+    :saving="saving"
+    :lastAction="lastAction"
+    :notice="notice"
+    :isValid="isValid"
+    @close="goBack"
+    @save="saveDownload(false)"
+    @publish="saveDownload(true)"
+    @clear-notice="notice = null"
+  >
     <!-- Access guard -->
     <div
       v-if="!loadingRole && !isSuperAdmin"
@@ -63,7 +22,11 @@
     </div>
 
     <!-- Form -->
-    <form v-else class="space-y-6" @submit.prevent>
+    <form
+      v-else
+      class="space-y-6"
+      @submit.prevent
+    >
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Title -->
         <div>
@@ -108,7 +71,7 @@
         </p>
       </div>
     </form>
-  </div>
+  </AddContentLayout>
 </template>
 
 <script setup lang="ts">
@@ -118,6 +81,7 @@ definePageMeta({
   layout: 'super-admin',
 })
 
+import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCurrentUser, useFirestore } from 'vuefire'
@@ -152,7 +116,8 @@ onMounted(async () => {
     const userRef = doc(db, 'users', currentUser.value.uid)
     const snap = await getDoc(userRef)
     const role = (snap.exists() && (snap.data() as any).role) || ''
-    isSuperAdmin.value = String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
+    isSuperAdmin.value =
+      String(role).toLowerCase().replace(/\s+/g, '_') === 'super_admin'
   } finally {
     loadingRole.value = false
   }
@@ -162,17 +127,19 @@ onMounted(async () => {
 /* notices */
 type NoticeType = 'success' | 'error'
 const notice = ref<{ type: NoticeType; title: string } | null>(null)
-let hideTimer: any = null
+let hideTimer: ReturnType<typeof setTimeout> | null = null
 function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
   notice.value = n
-  clearTimeout(hideTimer)
+  if (hideTimer) clearTimeout(hideTimer)
   hideTimer = setTimeout(() => (notice.value = null), ms)
 }
 
 /* form */
 const initialState = { title: '', author: '', content: '' }
 const form = reactive({ ...initialState })
-const isValid = computed(() => !!form.title && !!form.author)
+const isValid = computed(
+  () => !!form.title.trim() && !!form.author.trim()
+)
 const saving = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 
@@ -259,8 +226,10 @@ function suppressButtonSubmit(event: Event) {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active { transition: opacity .18s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
 
 .text-maroon { color:#740505; }
 .bg-maroon { background-color:#740505; }

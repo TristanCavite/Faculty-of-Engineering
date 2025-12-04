@@ -1,40 +1,18 @@
+<!-- pages/admin/super-admin/events/add_event.vue (or similar path) -->
 <template>
-  <div class="mx-auto max-w-5xl px-4 py-8">
-    <!-- Header + Actions -->
-    <div class="mb-6 flex items-center justify-between gap-4">
-      <h1 class="text-2xl font-bold text-maroon">
-        {{ isEditMode ? 'Edit Event' : 'Add New Event' }}
-      </h1>
-
-      <div class="flex items-center gap-3">
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          @click="router.push('/admin/super-admin/events')"
-        >
-          Close
-        </UiButton>
-
-        <UiButton
-          type="button"
-          class="btn-outline-maroon"
-          :disabled="loading"
-          @click="saveEvent(false)"
-        >
-          {{ loading && lastAction === 'save' ? 'Saving…' : 'Save' }}
-        </UiButton>
-
-        <UiButton
-          type="button"
-          class="bg-maroon text-white hover:opacity-90"
-          :disabled="loading"
-          @click="saveEvent(true)"
-        >
-          {{ loading && lastAction === 'publish' ? 'Publishing…' : 'Publish' }}
-        </UiButton>
-      </div>
-    </div>
-
+  <AddContentLayout
+    createTitle="Add New Event"
+    editTitle="Edit Event"
+    :isEditMode="isEditMode"
+    :saving="loading"
+    :lastAction="lastAction"
+    :notice="notice"
+    :isValid="isValid"
+    @close="goBack"
+    @save="saveEvent(false)"
+    @publish="saveEvent(true)"
+    @clear-notice="notice = null"
+  >
     <div v-if="isEditMode" class="mb-4 text-sm text-gray-500">
       You are editing an existing event.
     </div>
@@ -58,16 +36,24 @@
         />
       </div>
 
-      <!-- Dates -->
+      <!-- Start Date -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
-        <input v-model="form.date" type="date" required class="input input-bordered w-full" />
+        <input
+          v-model="form.date"
+          type="date"
+          required
+          class="input input-bordered w-full"
+        />
       </div>
 
+      <!-- End Date -->
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-700">End Date</label>
         <input v-model="form.dateEnd" type="date" class="input input-bordered w-full" />
-        <p class="mt-1 text-xs text-gray-500">Leave blank if the event is only one day.</p>
+        <p class="mt-1 text-xs text-gray-500">
+          Leave blank if the event is only one day.
+        </p>
       </div>
 
       <!-- Event Type -->
@@ -123,10 +109,11 @@
         />
       </div>
     </form>
-  </div>
+  </AddContentLayout>
 </template>
 
 <script setup lang="ts">
+import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import { collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 import { computed, onMounted, ref } from 'vue'
@@ -157,7 +144,7 @@ const EVENT_TYPES = [
 type EventType = '' | 'university' | 'faculty' | 'students' | 'department' | 'general'
 type Status = 'draft' | 'pending' | 'published'
 
-const form = ref({
+const initialForm = {
   title: '',
   date: '',
   dateEnd: '',
@@ -165,7 +152,10 @@ const form = ref({
   content: '',
   coverImages: [] as string[],
   eventType: '' as EventType,
-})
+}
+
+const form = ref({ ...initialForm })
+
 
 const imageFiles = ref<File[]>([])
 const previewUrls = ref<string[]>([])
@@ -173,6 +163,29 @@ const loading = ref(false)
 const lastAction = ref<'save' | 'publish' | null>(null)
 const editorReady = ref(false)
 const existingStatus = ref<Status>('draft')
+
+/* notice for AddContentLayout (you can keep it mostly for errors) */
+type NoticeType = 'success' | 'error'
+const notice = ref<{ type: NoticeType; title: string } | null>(null)
+let hideTimer: ReturnType<typeof setTimeout> | null = null
+function showNotice(n: { type: NoticeType; title: string }, ms = 3000) {
+  notice.value = n
+  if (hideTimer) clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => (notice.value = null), ms)
+}
+
+/* Disable Save/Publish until required fields are filled */
+const isValid = computed<boolean>(() => {
+  const v = form.value
+  return !!(
+    v.title.trim() &&
+    v.date &&
+    v.eventType &&
+    v.description.trim() &&
+    v.content.trim()
+  )
+})
+
 
 function deriveStatus(data: any): Status {
   const raw = typeof data?.status === 'string' ? data.status.toLowerCase() : ''
@@ -213,20 +226,24 @@ onMounted(async () => {
 })
 
 /** Save helper
- *  - super admin Publish => status 'published'
+ *  - Super admin Publish => status 'published'
  *  - Save:
  *      - new event   => 'draft'
  *      - editing     => keep whatever status it had
  */
 async function saveEvent(publish: boolean) {
   if (loading.value) return
+  if (!isValid.value) return
+
   loading.value = true
   lastAction.value = publish ? 'publish' : 'save'
 
   try {
-    const id = (route.query.id as string) || crypto.randomUUID()
+    const idFromRoute = route.query.id as string | undefined
+    const id = idFromRoute || crypto.randomUUID()
+    const isNew = !isEditMode.value
 
-    // Upload newly selected cover images
+    // Upload newly selected cover images (if any)
     let uploadedUrls: string[] = form.value.coverImages || []
     if (imageFiles.value.length) {
       uploadedUrls = []
@@ -253,17 +270,41 @@ async function saveEvent(publish: boolean) {
       publishedAt: status === 'published' ? serverTimestamp() : null,
       updatedAt: serverTimestamp(),
     }
-    if (!isEditMode.value) payload.createdAt = serverTimestamp()
+    if (isNew) payload.createdAt = serverTimestamp()
 
     await setDoc(doc(collection(db, 'events'), id), payload, { merge: true })
-    router.push('/admin/super-admin/events')
+
+    // keep status + images in sync
+    existingStatus.value = status
+    form.value.coverImages = uploadedUrls
+    previewUrls.value = uploadedUrls
+    imageFiles.value = []
+
+    // ✅ SUCCESS NOTICE (this is what AddContentLayout renders)
+    const msg =
+      status === 'published'
+        ? 'Event published.'
+        : 'Event saved as draft.'
+    showNotice({ type: 'success', title: msg })
+
+    // ✅ Clear form only when creating a NEW event
+    if (isNew) {
+      form.value = { ...initialForm }
+      previewUrls.value = []
+      imageFiles.value = []
+    }
   } catch (err) {
     console.error('Error saving event:', err)
-    alert('Something went wrong. Please try again.')
+    showNotice({
+      type: 'error',
+      title: 'Something went wrong. Please try again.',
+    })
   } finally {
     loading.value = false
+    lastAction.value = null
   }
 }
+
 
 /** Guard: avoid Enter submitting the form when typing */
 function preventEnterSubmit(e: KeyboardEvent) {
@@ -288,6 +329,10 @@ const handleEditorImageUpload = async (file: File): Promise<string> => {
   const fileRef = storageRef(storage, path)
   await uploadBytes(fileRef, file)
   return await getDownloadURL(fileRef)
+}
+
+function goBack() {
+  router.push('/admin/super-admin/events')
 }
 </script>
 
