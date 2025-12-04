@@ -39,14 +39,14 @@
          <!-- logo and navbar -->
         
         <div class="flex items-center w-full border-b-2 border-red-900">
-            <UiCollapsible class="relative">
+            <UiCollapsible class="relative" v-model:open="mainMenuOpen">
                 <UiCollapsibleTrigger>
                     <UiButton class="bg-transparent md:hidden hover:bg-gray-300">
                         <Menu class="text-red-900 cursor-pointer stroke-[2] size-8"/>
                     </UiButton>
                 </UiCollapsibleTrigger>
-                <UiCollapsibleContent class="px-4 py-2 space-y-5 w-72 max-w-[min(90vw,20rem)] max-h-[calc(100vh-10rem)] overflow-y-auto bg-slate-200 rounded absolute z-10 scrollbar-thin scrollbar-track-gray-200">
-                    <NuxtLink to="/" class="flex items-center gap-1 text-lg font-semibold font-montserrat">
+                <UiCollapsibleContent class="px-4 py-2 space-y-5 w-72 max-w-[min(90vw,20rem)] max-h-[calc(100vh-10rem)] overflow-y-auto bg-slate-200/90 rounded absolute z-10 scrollbar-thin scrollbar-track-gray-200">
+                    <NuxtLink to="/" class="flex items-center gap-1 text-lg font-semibold font-montserrat" @click="closeAllMenus">
                         <House class="text-red-900"/>
                         HOME
                     </NuxtLink>
@@ -59,25 +59,25 @@
                             <ChevronDown class="transition-transform size-4 stroke-[3]" :class="{ 'rotate-180': aboutOpen }"/>
                         </UiCollapsibleTrigger>
                         <UiCollapsibleContent class="pl-4 mt-4 space-y-5">
-                            <NuxtLink to="/about/faculty" class="block text-lg font-semibold font-montserrat">Faculty of Engineering</NuxtLink>
-                            <NuxtLink to="/about/facilities" class="block text-lg font-semibold font-montserrat">Facilities</NuxtLink>
-                            <NuxtLink to="/about/history" class="block text-lg font-semibold font-montserrat">History</NuxtLink>
+                            <NuxtLink to="/about/faculty" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Faculty of Engineering</NuxtLink>
+                            <NuxtLink to="/about/facilities" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Facilities</NuxtLink>
+                            <NuxtLink to="/about/history" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">History</NuxtLink>
                             <UiCollapsible class="w-full" v-model:open="officesOpen">
-                                <UiCollapsibleTrigger class="flex items-center justify-between w-full" @click.prevent>
+                                <UiCollapsibleTrigger class="flex items-center justify-between w-full" @click.prevent >
                                     <span class="text-lg font-semibold text-left font-montserrat">
                                         Offices and Administration
                                     </span>
                                     <ChevronDown class="transition-transform size-4 stroke-[3]" :class="{ 'rotate-180': officesOpen }"/>
                                 </UiCollapsibleTrigger>
                                 <UiCollapsibleContent class="pl-4 mt-4 space-y-5">
-                                    <NuxtLink v-for="dept in departments" :key="dept.id" :to="`/about/dept_personels/${dept.id}`" class="flex text-lg font-semibold font-montserrat">
+                                    <NuxtLink v-for="dept in departments" :key="dept.id" :to="`/about/dept_personels/${dept.id}`" class="flex text-lg font-semibold font-montserrat" @click="closeAllMenus">
                                         {{ dept.name }}
                                     </NuxtLink>
                                 </UiCollapsibleContent>
                             </UiCollapsible>
-                            <NuxtLink to="/about/map" class="block text-lg font-semibold font-montserrat">Map and Location</NuxtLink>
-                            <NuxtLink :to="`/about/extra1`" v-if="extra1Visible" class="block text-lg font-semibold font-montserrat">{{ extra1Label }}</NuxtLink>
-                            <NuxtLink :to="`/about/extra2`"  v-if="extra2Visible" class="block text-lg font-semibold font-montserrat">{{ extra2Label }}</NuxtLink>
+                            <NuxtLink to="/about/map" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Map and Location</NuxtLink>
+                            <NuxtLink :to="`/about/extra1`" v-if="extra1Visible" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">{{ extra1Label }}</NuxtLink>
+                            <NuxtLink :to="`/about/extra2`"  v-if="extra2Visible" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">{{ extra2Label }}</NuxtLink>
                         </UiCollapsibleContent>
                     </UiCollapsible>
                     <UiCollapsible class="w-full" v-model:open="academicsOpen">
@@ -97,12 +97,12 @@
                                     <ChevronDown class="transition-transform size-4 stroke-[3]" :class="{ 'rotate-180': degreeProgramsOpen }"/>
                                 </UiCollapsibleTrigger>
                                 <UiCollapsibleContent class="pl-4 mt-4 space-y-2">
-                                     <NuxtLink v-for="dept in departments" :key="dept.id" :to="`/about/dept_personels/${dept.id}`" class="flex text-lg font-semibold font-montserrat">
+                                     <NuxtLink v-for="dept in departments" :key="dept.id" :to="`/about/dept_personels/${dept.id}`" class="flex text-lg font-semibold font-montserrat" @click="closeAllMenus">
                                         {{ dept.name }}
                                     </NuxtLink>
                                 </UiCollapsibleContent>
                             </UiCollapsible>
-                            <NuxtLink to="/academics/calendar" class="block text-lg font-semibold font-montserrat">Academic Calendar</NuxtLink>
+                            <NuxtLink to="/academics/calendar" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Academic Calendar</NuxtLink>
                         </UiCollapsibleContent>
                     </UiCollapsible>
                     <UiCollapsible class="w-full" v-model:open="admissionOpen">
@@ -114,26 +114,26 @@
                             <ChevronDown class="transition-transform size-4 stroke-[3]" :class="{ 'rotate-180': admissionOpen }"/>
                         </UiCollapsibleTrigger>
                         <UiCollapsibleContent class="pl-4 mt-4 space-y-5">
-                            <NuxtLink to="/admission/why_choose_cet" class="block text-lg font-semibold font-montserrat">Why choose VSU?</NuxtLink>
-                            <NuxtLink to="/admission/undergraduate" class="block text-lg font-semibold font-montserrat">Undergraduate</NuxtLink>
-                            <NuxtLink to="/admission/graduate" class="block text-lg font-semibold font-montserrat">Graduate</NuxtLink>
-                            <NuxtLink :to="`/admission/extra1`" v-if="admExtra1ShouldShow" class="flex items-center">{{ admExtra1Label }}</NuxtLink>
-                            <NuxtLink :to="`/admission/extra2`" v-if="admExtra2ShouldShow" class="flex items-center">{{ admExtra2Label }}</NuxtLink>
+                            <NuxtLink to="/admission/why_choose_cet" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Why choose VSU?</NuxtLink>
+                            <NuxtLink to="/admission/undergraduate" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Undergraduate</NuxtLink>
+                            <NuxtLink to="/admission/graduate" class="block text-lg font-semibold font-montserrat" @click="closeAllMenus">Graduate</NuxtLink>
+                            <NuxtLink :to="`/admission/extra1`" v-if="admExtra1ShouldShow" class="flex items-center" @click="closeAllMenus">{{ admExtra1Label }}</NuxtLink>
+                            <NuxtLink :to="`/admission/extra2`" v-if="admExtra2ShouldShow" class="flex items-center" @click="closeAllMenus">{{ admExtra2Label }}</NuxtLink>
                         </UiCollapsibleContent>
                     </UiCollapsible>
-                    <NuxtLink to="/research" class="flex items-center gap-1 text-lg font-semibold font-montserrat">
+                    <NuxtLink to="/research" class="flex items-center gap-1 text-lg font-semibold font-montserrat" @click="closeAllMenus">
                         <FlaskConical class="text-red-900"/>
                         RESEARCH
                     </NuxtLink>
-                    <NuxtLink to="/news" class="flex items-center gap-1 text-lg font-semibold font-montserrat">
+                    <NuxtLink to="/news" class="flex items-center gap-1 text-lg font-semibold font-montserrat" @click="closeAllMenus">
                         <Newspaper class="text-red-900"/>
                         NEWS
                     </NuxtLink>
-                    <NuxtLink to="/download" class="flex items-center gap-1 text-lg font-semibold font-montserrat">
+                    <NuxtLink to="/download" class="flex items-center gap-1 text-lg font-semibold font-montserrat" @click="closeAllMenus">
                         <FileDown class="text-red-900"/>
                          DOWNLOAD
                     </NuxtLink>
-                    <NuxtLink to="/obe/" class="flex items-center gap-1 text-lg font-semibold font-montserrat">
+                    <NuxtLink to="/obe/" class="flex items-center gap-1 text-lg font-semibold font-montserrat" @click="closeAllMenus">
                         <Award class="text-red-900"/>
                         OBE
                     </NuxtLink>
@@ -186,6 +186,19 @@
     watch(degreeProgramsOpen, (val) => {
         if (!val) degreeProgramsOpen.value = false;
     });
+
+    // Add main menu state
+    const mainMenuOpen = ref(false);
+
+    // Function to close all menus
+    function closeAllMenus() {
+        mainMenuOpen.value = false;
+        aboutOpen.value = false;
+        officesOpen.value = false;
+        academicsOpen.value = false;
+        degreeProgramsOpen.value = false;
+        admissionOpen.value = false;
+    }
 
     const _db_for_extra_labels = useFirestore();
     const extra1Doc = useDocument(doc(_db_for_extra_labels, "about_sections", "extra_section_1"));

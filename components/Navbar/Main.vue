@@ -48,152 +48,152 @@
     </transition>
 
     <transition name="nav-fade-up">
-      <nav  v-if="!hideNav" class="flex flex-col items-center w-full bg-red-900" :class="['flex w-full flex-col items-center', { 'nav-fixed': !hideNav }]">
+      <nav  v-if="!hideNav" class="flex flex-col items-center w-full bg-red-900 scale " :class="['flex w-full flex-col items-center', { 'nav-fixed': !hideNav }]">
         <UiTabs :value="visualTab" @update:value="handleTabChange">
-          <UiTabsList  class="relative gap-2 bg-transparent h-11 text-foreground">
-            <UiTabsTrigger value="home" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'home' ? 'bg-accent text-foreground' : '']">
-              <NuxtLink to="/" class="flex items-center text-lg">
+          <UiTabsList  class="relative h-10 gap-2 text-white bg-transparent font-montserrat">
+            <UiTabsTrigger value="home" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'home' ? 'bg-red-950 text-white' : '']">
+              <NuxtLink to="/" class="flex items-center text-lg font-bold">
                 <House/>
                 Home
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="about" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'about' ? 'bg-accent text-foreground' : '']">
+            <UiTabsTrigger value="about" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'about' ? 'bg-red-950 text-white' : '']">
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg">
+                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
                   <BadgeInfo />
                   About
                   <ChevronDown/>
                 </UiDropdownMenuTrigger>
                 <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)">
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/about/faculty" class="flex items-center">
+                    <NuxtLink to="/about/faculty" class="flex items-center text-lg font-medium hover:scale-105 ">
                       Faculty of Engineering
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/about/facilities" class="flex items-center">
+                    <NuxtLink to="/about/facilities" class="flex items-center text-lg font-medium hover:scale-105">
                       Facilities
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/about/history" class="flex items-center">
+                    <NuxtLink to="/about/history" class="flex items-center text-lg font-medium hover:scale-105">
                       History
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuSub>
-                    <UiDropdownMenuSubTrigger>
+                  <UiDropdownMenuSub >
+                    <UiDropdownMenuSubTrigger class="text-lg font-medium hover:scale-105">
                       Offices and Administration
                     </UiDropdownMenuSubTrigger>
                     <UiDropdownMenuSubContent >
                       <UiDropdownMenuItem v-for="dept in departments" :key="dept.id" >
-                        <NuxtLink :to="`/about/dept_personels/${dept.id}`" class="flex items-center">
+                        <NuxtLink :to="`/about/dept_personels/${dept.id}`" class="flex items-center text-lg font-medium hover:scale-105">
                            {{ dept.name }}
                         </NuxtLink>
                       </UiDropdownMenuItem>
                     </UiDropdownMenuSubContent>
                   </UiDropdownMenuSub>
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/about/map" class="flex items-center">
+                    <NuxtLink to="/about/map" class="flex items-center text-lg font-medium hover:scale-105">
                       Map and Location
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem v-if="extra1Visible">
-                    <NuxtLink :to="`/about/extra1`" class="flex items-center">
+                    <NuxtLink :to="`/about/extra1`" class="flex items-center text-lg font-medium hover:scale-105">
                       {{ extra1Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem v-if="extra2Visible">
-                    <NuxtLink :to="`/about/extra2`" class="flex items-center">
+                    <NuxtLink :to="`/about/extra2`" class="flex items-center text-lg font-medium hover:scale-105">
                       {{ extra2Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="academics" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'academics' ? 'bg-accent text-foreground' : '']">
+            <UiTabsTrigger value="academics" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'academics' ? 'bg-red-950 text-white' : '']">
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg">
+                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
                   <Users/>
                   Academics
                   <ChevronDown/>
                 </UiDropdownMenuTrigger>
                 <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)">
                   <UiDropdownMenuSub>
-                    <UiDropdownMenuSubTrigger>
+                    <UiDropdownMenuSubTrigger class="text-lg font-medium hover:scale-105 ">
                       Degree Program
                     </UiDropdownMenuSubTrigger>
                     <UiDropdownMenuSubContent>
                       <UiDropdownMenuItem v-for="dept in departments" :key="dept.id" >
-                        <NuxtLink :to="`/academics/departments/${dept.id}`" class="flex items-center">
+                        <NuxtLink :to="`/academics/departments/${dept.id}`" class="flex items-center text-lg font-medium hover:scale-105">
                            {{ dept.name }}
                         </NuxtLink>
                       </UiDropdownMenuItem>
                     </UiDropdownMenuSubContent>
                   </UiDropdownMenuSub>
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/academics/academic_calendar" class="flex items-center">
+                    <NuxtLink to="/academics/academic_calendar" class="flex items-center text-lg font-medium hover:scale-105">
                       Academic Calendar
                     </NuxtLink> 
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="admission" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'admission' ? 'bg-accent text-foreground' : '']">
+            <UiTabsTrigger value="admission" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'admission' ? 'bg-red-950 text-white' : '']">
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg">
+                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
                   <Building/>
                   Admission
                   <ChevronDown/>
                 </UiDropdownMenuTrigger>
-                <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)">
+                <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)" >            
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/admission/why_choose_cet" class="flex items-center">
+                    <NuxtLink to="/admission/why_choose_cet" class="flex items-center text-lg font-medium hover:scale-105">
                       Why choose VSU?
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem v-if="undergradVisible">
-                    <NuxtLink to="/admission/undergraduate" class="flex items-center">
+                    <NuxtLink to="/admission/undergraduate" class="flex items-center text-lg font-medium hover:scale-105">
                       Undergraduate
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem>
-                    <NuxtLink to="/admission/graduate" class="flex items-center">
+                    <NuxtLink to="/admission/graduate" class="flex items-center text-lg font-medium hover:scale-105">
                       Graduate
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem v-if="admExtra1ShouldShow">
-                    <NuxtLink :to="`/admission/extra1`" class="flex items-center">
+                    <NuxtLink :to="`/admission/extra1`" class="flex items-center text-lg font-medium hover:scale-105">
                       {{ admExtra1Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                   <UiDropdownMenuItem v-if="admExtra2ShouldShow">
-                    <NuxtLink :to="`/admission/extra2`" class="flex items-center">
+                    <NuxtLink :to="`/admission/extra2`" class="flex items-center text-lg font-medium hover:scale-105">
                       {{ admExtra2Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="research" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'research' ? 'bg-accent text-foreground' : '']">
-              <NuxtLink to="/research/" class="flex items-center text-lg">
+            <UiTabsTrigger value="research" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'research' ? 'bg-red-950 text-white' : '']">
+              <NuxtLink to="/research/" class="flex items-center text-lg font-bold">
                 <FlaskConical/>
                 Research
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="news" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'news' ? 'bg-accent text-foreground' : '']">
-              <NuxtLink to="/news/" class="flex items-center text-lg">
+            <UiTabsTrigger value="news" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'news' ? 'bg-red-950 text-white' : '']">
+              <NuxtLink to="/news/" class="flex items-center text-lg font-bold">
                 <Newspaper/>
                 News
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="download" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'download' ? 'bg-accent text-foreground' : '']">
-              <NuxtLink to="/download/" class="flex items-center text-lg">
+            <UiTabsTrigger value="download" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'download' ? 'bg-red-950 text-white' : '']">
+              <NuxtLink to="/download/" class="flex items-center text-lg font-bold">
                 <FileDown/>
                 Download
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="obe" :class="['relative hover:bg-accent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-accent', visualTab === 'obe' ? 'bg-accent text-foreground' : '']">
-              <NuxtLink to="/obe/" class="flex items-center text-lg">
+            <UiTabsTrigger value="obe" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'obe' ? 'bg-red-950 text-white' : '']">
+              <NuxtLink to="/obe/" class="flex items-center text-lg font-bold">
                 <Award />
                 OBE
               </NuxtLink>
@@ -210,7 +210,7 @@
   import { signOut } from "firebase/auth";
   import { collection, doc, getDoc, getDocs } from "firebase/firestore";
   import { Facebook, Globe, Instagram, Linkedin, Twitter, Youtube, ChevronDown, Search, House, BadgeInfo, Users, Building, Clock, MapPin, School, FlaskConical, Newspaper, FileDown, Award, FolderPlus} from "lucide-vue-next";
-  import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick} from "vue";
+  import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick, reactive} from "vue";
   import { useRoute, useRouter } from "vue-router";
   import { useDocument, useFirestore } from "vuefire";
 
