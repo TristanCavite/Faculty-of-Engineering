@@ -1,34 +1,37 @@
 <template>
   <div class="flex flex-col w-full space-y-6">
-    <template v-if="filteredEvents.length > 0">
+    <!-- MAIN LIST -->
+    <template v-if="filteredItems.length > 0">
       <div
-        v-for="event in filteredEvents"
-        :key="event.id"
+        v-for="item in filteredItems"
+        :key="item.id"
         class="w-full pt-5 pb-5 border rounded-lg bg-neutral-50"
       >
+        <!-- DATE LABEL -->
         <span
           class="pl-5 pr-5 font-semibold text-red-800 text-md font-inter md:text-2xl"
         >
-          EVENT DATE: {{ formatEventDate(event.date, event.dateEnd) }}
+          {{ dateLabelComputed }}: {{ formatPrimaryDate(item) }}
         </span>
 
+        <!-- CAROUSEL -->
         <UiCarousel
           class="relative w-full max-w-none md:max-w-7xl"
           :plugins="[autoplay]"
-          @init-api="(api) => setEventApi(event.id, api)"
+          @init-api="(api) => setItemApi(item.id, api)"
         >
           <UiCarouselContent>
             <UiCarouselItem
-              v-for="(img, i) in event.coverImages"
+              v-for="(img, i) in item.coverImages"
               :key="i"
             >
               <div
                 class="flex flex-shrink-0 pt-4 pb-4 transition-transform duration-500"
-                :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }"
+                :style="{ transform: `translateX(-${getItemCurrentSlide(item.id)}00%)` }"
               >
                 <div
                   class="flex-shrink-0 w-full cursor-pointer"
-                  @click="openPhotoModal(img, '')"
+                  @click="openPhotoModal(img, item.title)"
                 >
                   <img
                     :src="img"
@@ -49,51 +52,58 @@
             iconClass="size-5 md:size-6 text-white"
           />
 
+          <!-- DOTS -->
           <div
             class="absolute z-10 flex space-x-2 -translate-x-1/2 left-1/2 bottom-6"
           >
             <span
-              v-for="(img, i) in event.coverImages"
+              v-for="(img, i) in item.coverImages"
               :key="i"
               class="bg-gray-400 rounded-full size-2"
-              :class="{ '!bg-gray-800 scale-125': getEventCurrentSlide(event.id) === i }"
-              @click="setEventSlide(event.id, i)"
+              :class="{ '!bg-gray-800 scale-125': getItemCurrentSlide(item.id) === i }"
+              @click="setItemSlide(item.id, i)"
             />
           </div>
         </UiCarousel>
 
+        <!-- TITLE + PUBLISH DATE -->
         <div class="pb-2 pl-5 pr-5 md:pt-2">
           <span class="text-xl font-semibold font-roboto md:text-2xl">
-            {{ event.title }}
+            {{ item.title }}
           </span>
           <div class="text-sm italic text-gray-600">
-            Published: {{ formatPublishDate(event.createdAt) }}
+            Published: {{ formatPublishDateSafe(item.createdAt) }}
           </div>
         </div>
 
+        <!-- DESCRIPTION -->
         <div class="pl-5 pr-5 font-roboto">
-          <p v-html="event.description"></p>
+          <p v-html="item.description"></p>
         </div>
+
+        <!-- CTA + SHARE -->
         <div class="flex justify-between pl-5 pr-5 mt-4">
           <UiButton
-            @click="readMore(event.id)"
+            @click="readMore(item.id)"
             class="inline-block px-2 py-1 text-xs font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
           >
             Read more...
           </UiButton>
+
           <ShareButton
             :item="{
-              id: event.id,
-              type: 'event',
-              slug: event.slug,
-              title: event.title,
-              excerpt: event.description,
+              id: item.id,
+              type: effectiveItemType as 'event' | 'news' | 'research' | 'profile',
+              slug: item.slug,
+              title: item.title,
+              excerpt: item.description,
             }"
           />
         </div>
       </div>
     </template>
 
+    <!-- EMPTY STATE -->
     <template v-else>
       <div
         class="flex h-[420px] w-full flex-col items-center justify-center rounded-xl border bg-white text-center text-gray-500 shadow"
@@ -117,26 +127,30 @@
             d="M15 12l-6 6m0-6l6 6"
           />
         </svg>
-        <p class="text-lg font-semibold">No events on this day.</p>
-        <p class="text-sm">Try selecting another date on the calendar.</p>
+        <p class="text-lg font-semibold">
+          {{ emptyTitleComputed }}
+        </p>
+        <p class="text-sm">
+          {{ emptySubtitleComputed }}
+        </p>
+
         <UiButton
           v-if="selectedDate"
           @click="selectedDate = null"
           class="px-4 py-2 mt-4 text-sm font-semibold text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
         >
-          Show all events
+          {{ showAllLabelComputed }}
         </UiButton>
       </div>
     </template>
 
-    <!-- PHOTO MODAL (added, design of cards untouched) -->
+    <!-- PHOTO MODAL (overlay, does not affect card design) -->
     <PhotoModal
       v-model="showPhotoModal"
       :src="photoModalSrc"
       :alt="photoModalAlt"
       @close="showPhotoModal = false"
     />
-
   </div>
 </template>
 
@@ -149,50 +163,71 @@ import Autoplay from "embla-carousel-autoplay"
 
 import { useEventsCalendar, type EventRecord } from "@/composables/useEventsCalendar"
 
+// ---------- PROPS (make it dynamic) ----------
+const props = defineProps<{
+  /** Firestore collection name, e.g. "events", "news", "research" */
+  collectionName: string
+  /** Logical item type for ShareButton, e.g. "event", "news", "research" */
+  itemType?: string
+  /** Field to use for type-based filtering (default: "eventType") */
+  typeField?: string
+  /** Field to use as the primary date (default: "date") */
+  primaryDateField?: string
+  /** Custom label before the main date (default: "EVENT DATE") */
+  dateLabel?: string
+  /** Optional global text search (title + description HTML) */
+  searchText?: string
+  /** Limit number of visible items (default: 3) */
+  maxVisible?: number
+}>()
+
+// ---------- CORE SETUP ----------
 const db = useFirestore()
 const router = useRouter()
-const events = ref<EventRecord[]>([])
 
-// Fetch events
+// Generic record: we piggyback on EventRecord shape + extras
+type ContentRecord = EventRecord & {
+  [key: string]: any
+}
+
+const items = ref<ContentRecord[]>([])
+
 onMounted(async () => {
-  const snap = await getDocs(collection(db, "events"))
-  events.value = snap.docs.map((doc) => ({
+  const snap = await getDocs(collection(db, props.collectionName))
+  items.value = snap.docs.map((doc) => ({
     id: doc.id,
     currentSlide: 0,
     ...doc.data(),
-  })) as unknown as EventRecord[]
+  })) as unknown as ContentRecord[]
 })
 
-// Track carousel APIs and current slides for each event
-const eventCarouselApis = ref<Map<string, any>>(new Map())
-const eventCurrentSlides = ref<Map<string, number>>(new Map())
+// ---------- Carousel API tracking ----------
+const itemCarouselApis = ref<Map<string, any>>(new Map())
+const itemCurrentSlides = ref<Map<string, number>>(new Map())
 
-function setEventApi(eventId: string, emblaApi: any) {
-  eventCarouselApis.value.set(eventId, emblaApi)
+function setItemApi(itemId: string, emblaApi: any) {
+  itemCarouselApis.value.set(itemId, emblaApi)
 
   if (emblaApi) {
-    // Initialize current slide
-    eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
-
-    // Listen for slide changes
+    itemCurrentSlides.value.set(itemId, emblaApi.selectedScrollSnap())
     emblaApi.on("select", () => {
-      eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
+      itemCurrentSlides.value.set(itemId, emblaApi.selectedScrollSnap())
     })
   }
 }
 
-function getEventCurrentSlide(eventId: string): number {
-  return eventCurrentSlides.value.get(eventId) || 0
+function getItemCurrentSlide(itemId: string): number {
+  return itemCurrentSlides.value.get(itemId) ?? 0
 }
 
-function setEventSlide(eventId: string, slideIndex: number) {
-  const api = eventCarouselApis.value.get(eventId)
+function setItemSlide(itemId: string, slideIndex: number) {
+  const api = itemCarouselApis.value.get(itemId)
   if (api) {
     api.scrollTo(slideIndex)
   }
 }
 
-// Calendar and helpers
+// ---------- Calendar + date utilities ----------
 const {
   selectedDate,
   calendarAttributes,
@@ -201,89 +236,150 @@ const {
   formatPublishDate,
   bySelectedDate,
   msFrom,
-} = useEventsCalendar(events, { scrollTargetId: "events-list" })
+} = useEventsCalendar(items as unknown as Ref<EventRecord[]>, {
+  scrollTargetId: "events-list",
+})
 
-const typeFilter = ref<string>("all") // v-model from EventFilter
-const MAX_VISIBLE = 3
+// ---------- Filtering ----------
+const typeFilter = ref<string>("all") // can be wired to an external EventFilter if you want
 
-// Sort by date descending
+const MAX_VISIBLE = computed(() => props.maxVisible ?? 3)
+const primaryDateField = computed(() => props.primaryDateField || "date")
+const typeField = computed(() => props.typeField || "eventType")
+const search = computed(() => (props.searchText || "").trim().toLowerCase())
+
+// sort by primary date descending
 const sortedByDateDesc = computed(() =>
-  events.value.slice().sort((a, b) => msFrom(b.date) - msFrom(a.date)),
+  items.value.slice().sort((a, b) => {
+    const aDate = (a as any)[primaryDateField.value]
+    const bDate = (b as any)[primaryDateField.value]
+    return msFrom(bDate) - msFrom(aDate)
+  }),
 )
 
-// Filter by event type
+// filter by type (if there is a type field)
 const listByType = computed(() => {
   if (typeFilter.value === "all") return sortedByDateDesc.value
+
   const normalizeType = (v: any) =>
     String(v || "")
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "")
-  return sortedByDateDesc.value.filter(
-    (e) => normalizeType(e.eventType) === typeFilter.value,
+
+  return sortedByDateDesc.value.filter((e) =>
+    normalizeType((e as any)[typeField.value]) === typeFilter.value,
   )
 })
 
-// If you have a text filter, you can plug it here
-// const textFilter = ref("")
-// const listByTypeAndText = computed(() => { ... })
+// optional text filter (title + description html)
+const listByTypeAndText = computed(() => {
+  if (!search.value) return listByType.value
 
-// Filter by selected date and limit to MAX_VISIBLE
-const filteredEvents = computed<EventRecord[]>(() => {
-  let result: EventRecord[] = []
+  return listByType.value.filter((item) => {
+    const title = String(item.title || "").toLowerCase()
+    const desc = String(item.description || "")
+      .replace(/<[^>]*>/g, "")
+      .toLowerCase()
+    return title.includes(search.value) || desc.includes(search.value)
+  })
+})
+
+// apply date filter (if selectedDate is used) + limit visible
+const filteredItems = computed<ContentRecord[]>(() => {
+  let result: ContentRecord[] = []
 
   if (selectedDate.value) {
-    // Apply date filter
     if (typeof bySelectedDate === "function") {
-      const filterResult = (bySelectedDate as any)(listByType.value)
+      const filterResult = (bySelectedDate as any)(listByTypeAndText.value)
       if (Array.isArray(filterResult)) {
-        result = filterResult as EventRecord[]
+        result = filterResult as ContentRecord[]
       } else if (typeof filterResult === "function") {
-        result = listByType.value.filter(
-          filterResult as (e: EventRecord) => boolean,
+        result = listByTypeAndText.value.filter(
+          filterResult as (e: ContentRecord) => boolean,
         )
       } else {
-        result = listByType.value.filter(
-          bySelectedDate as unknown as (e: EventRecord) => boolean,
+        result = listByTypeAndText.value.filter(
+          bySelectedDate as unknown as (e: ContentRecord) => boolean,
         )
       }
     } else {
-      // Fallback: match by date string
-      result = listByType.value.filter((e) => {
-        const maybeDate = (e as any).date
-        const dateObj = maybeDate
-          ? typeof (maybeDate as any).toDate === "function"
-            ? (maybeDate as any).toDate()
-            : new Date(maybeDate)
+      // fallback: manual date match
+      result = listByTypeAndText.value.filter((item) => {
+        const rawDate = (item as any)[primaryDateField.value]
+        const dateObj = rawDate
+          ? typeof (rawDate as any).toDate === "function"
+            ? (rawDate as any).toDate()
+            : new Date(rawDate)
           : null
+
         const d = dateObj ? dateObj.toDateString() : ""
         const sel = selectedDate.value
           ? new Date(selectedDate.value as unknown as string)
           : null
         const selStr = sel ? sel.toDateString() : ""
+
         return d === selStr
       })
     }
   } else {
-    result = listByType.value
+    result = listByTypeAndText.value
   }
 
-  // LIMIT TO 3 VISIBLE EVENTS
-  return result.slice(0, MAX_VISIBLE)
+  return result.slice(0, MAX_VISIBLE.value)
 })
 
-// Clear date filter when changing type filter
+// when changing type filter, clear date selection (same as before)
 watch(typeFilter, (val) => {
   if (val !== "all") selectedDate.value = null
 })
 
-// Navigation
-function readMore(id: string) {
-  router.push(`/events/${id}`)
+// ---------- Date formatting helpers ----------
+function formatPrimaryDate(item: ContentRecord): string {
+  const rawDate = (item as any)[primaryDateField.value]
+  const dateEnd = (item as any).dateEnd
+
+  // For data that works with formatEventDate (events)
+  if (rawDate && typeof formatEventDate === "function") {
+    try {
+      return formatEventDate(rawDate, dateEnd)
+    } catch {
+      // fallback below
+    }
+  }
+
+  // Fallback: just format rawDate
+  if (rawDate) {
+    const d =
+      typeof (rawDate as any).toDate === "function"
+        ? (rawDate as any).toDate()
+        : new Date(rawDate)
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    })
+  }
+
+  // Ultimate fallback: createdAt
+  return formatPublishDateSafe((item as any).createdAt)
 }
 
-// Photo modal
+function formatPublishDateSafe(createdAt: any): string {
+  if (!createdAt) return ""
+  try {
+    return formatPublishDate(createdAt as any)
+  } catch {
+    const d =
+      typeof createdAt?.toDate === "function"
+        ? createdAt.toDate()
+        : new Date(createdAt)
+    return d.toLocaleDateString()
+  }
+}
+
+// ---------- Photo modal ----------
 const showPhotoModal = ref(false)
 const photoModalSrc = ref("")
 const photoModalAlt = ref("")
@@ -294,16 +390,46 @@ function openPhotoModal(src: string, alt?: string) {
   showPhotoModal.value = true
 }
 
-// Autoplay plugin
+// ---------- Navigation ----------
+const effectiveItemType = computed(
+  () =>
+    props.itemType ||
+    (props.collectionName.endsWith("s")
+      ? props.collectionName.slice(0, -1)
+      : props.collectionName),
+)
+
+function readMore(id: string) {
+  // route: /events/:id, /news/:id, /research/:id, etc.
+  router.push(`/${props.collectionName}/${id}`)
+}
+
+// ---------- Labels (keep design, make text dynamic) ----------
+const dateLabelComputed = computed(
+  () => props.dateLabel || "EVENT DATE",
+)
+
+const emptyTitleComputed = computed(
+  () => "No events on this day.",
+)
+
+const emptySubtitleComputed = computed(
+  () => "Try selecting another date on the calendar.",
+)
+
+const showAllLabelComputed = computed(
+  () => "Show all events",
+)
+
+// ---------- Autoplay plugin ----------
 const autoplay = Autoplay({ delay: 3000 })
 
-// Optionally expose bits to parent (calendar, filters)
+// Optionally expose calendar + filters to parent (if needed)
 defineExpose({
   selectedDate,
   calendarAttributes,
   handleDayClick,
   typeFilter,
 })
-
 </script>
 
