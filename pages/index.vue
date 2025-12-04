@@ -154,39 +154,22 @@
               </ClientOnly>
             </div>
 
-
-            <div v-if="oldEvents.length" class="p-6 border bg-neutral-50 rounded-xl">
-              <div class="flex items-center justify-between gap-2 pb-3 mb-3 text-red-900 border-b cursor-pointer border-neutral-300 hover:scale-105" @click="goToMore" role="button" aria-label="View all events">
-                <div class="flex items-center text-lg font-semibold ">
-                  <Clock class="w-5 h-5" />
-                  <span class="ml-2">More Events</span>
-                </div>
-                <ChevronRight class="w-4 h-4" />
-              </div>
-
-              <ul class="space-y-2">
-                <li v-for="ev in oldEvents" :key="ev.id">
-                  <UiButton @click="readMore(ev.id)" class="flex items-center justify-between gap-3 text-sm bg-transparent hover:bg-transparent hover:scale-105" >
-                    <span class="font-medium text-left text-gray-800 truncate w-72 hover:text-red-900">
-                      {{ ev.title }}
-                    </span>
-                    <span class="text-gray-500 shrink-0">{{ miniDate(ev.createdAt || ev.date) }}</span>
-                  </UiButton>
-                </li>
-              </ul>
-
-              <div class="hidden mt-4 md:flex md:justify-end">
-                <UiButton @click="goToMore" class="text-sm font-semibold text-white bg-red-900 hover:bg-red-950 hover:scale-105" >
-                  See all events →
-                </UiButton>
-              </div>
-              <div class="mt-4 text-center md:hidden">
-                <UiButton @click="goToMore" class="text-sm font-semibold text-red-900 hover:underline" >
-                  See all events →
-                </UiButton>
-              </div>
-            </div>
+            <MoreEvents
+              :events="moreEvents"
+              v-model:modelValue="showMoreEvents"
+              :max-visible="MAX_VISIBLE"
+              :max-old-events="MAX_OLD_EVENTS"
+            />
           </div>
+        </div>
+         <!-- See all (mobile) -->
+        <div class="text-center md:hidden">
+          <UiButton
+            @click="goToMore"
+            class="text-base font-semibold text-red-900 bg-transparent hover:bg-transparent"
+          >
+            See all events...
+          </UiButton>
         </div>
       </div> <!-- /grid -->
     </div>
@@ -209,7 +192,7 @@ import { collection, getDocs, orderBy, query } from "firebase/firestore"
 import { computed, onMounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useFirestore } from "vuefire"
-import {Clock, ChevronRight} from "lucide-vue-next";
+import type { EventRecord as MoreEventsEventRecord } from "@/components/MoreEvents.vue"
 
 const db = useFirestore()
 const router = useRouter()
@@ -234,6 +217,7 @@ const setCurrentSlide = (i: number) => api.value?.scrollTo(i)
 const showPhotoModal = ref(false)
 const photoModalSrc = ref("")
 const photoModalAlt = ref("")
+const showMoreEvents = ref(true)
 
 function openPhotoModal(src: string, alt?: string) {
   photoModalSrc.value = src
@@ -332,14 +316,72 @@ const listByType = computed(() => {
   return sortedByDateDesc.value.filter(e => normalizeType(e.eventType) === typeFilter.value)
 })
 
-const filteredEvents = computed(() => bySelectedDate(listByType.value).slice(0, MAX_VISIBLE))
-const oldEvents = computed(() =>
+const oldEvents = computed<EventRecord[]>(() =>
   sortedByDateDesc.value
     .slice(MAX_VISIBLE)
     .slice()
     .sort((a, b) => msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date))
     .slice(0, MAX_OLD_EVENTS)
+    .map((e) => ({ ...e, title: e.title ?? "" }))
 )
+
+// Provide a version typed to the MoreEvents component's EventRecord type (ensures title is a string)
+const moreEvents = computed<MoreEventsEventRecord[]>(() =>
+  sortedByDateDesc.value
+    .slice(MAX_VISIBLE)
+    .slice()
+    .sort((a, b) => msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date))
+    .slice(0, MAX_OLD_EVENTS)
+    .map((e) => ({ ...e, title: e.title ?? "" })) as unknown as MoreEventsEventRecord[]
+)
+
+// Computed list used in the template; if a date is selected, apply calendar filtering.
+// The composable exposes `bySelectedDate` which may be a predicate function or a ref to one.
+// Update the filteredEvents computed property
+const filteredEvents = computed(() => {
+  let result: EventRecord[] = []
+  
+  if (selectedDate.value) {
+    // If the composable provided a predicate function or a list-filtering function, handle both cases.
+    if (typeof bySelectedDate === "function") {
+      const filterResult = (bySelectedDate as any)(listByType.value)
+      if (Array.isArray(filterResult)) {
+        result = filterResult as EventRecord[]
+      } else if (typeof filterResult === "function") {
+        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+      } else {
+        result = listByType.value.filter(bySelectedDate as unknown as (e: EventRecord) => boolean)
+      }
+    } else if (typeof (bySelectedDate as any)?.value === "function") {
+      const fn = (bySelectedDate as any).value
+      const filterResult = fn(listByType.value)
+      if (Array.isArray(filterResult)) {
+        result = filterResult as EventRecord[]
+      } else if (typeof filterResult === "function") {
+        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+      } else {
+        result = listByType.value.filter(fn as unknown as (e: EventRecord) => boolean)
+      }
+    } else {
+      // Fallback: match by date string
+      result = listByType.value.filter((e) => {
+        const maybeDate = (e as any).date
+        const dateObj = maybeDate
+          ? (typeof maybeDate.toDate === "function" ? maybeDate.toDate() : new Date(maybeDate))
+          : null
+        const d = dateObj ? dateObj.toDateString() : ""
+        const sel = selectedDate.value ? new Date(selectedDate.value) : null
+        const selStr = sel ? sel.toDateString() : ""
+        return d === selStr
+      })
+    }
+  } else {
+    result = listByType.value
+  }
+  
+  // LIMIT TO MAX_VISIBLE (3) EVENTS
+  return result.slice(0, MAX_VISIBLE)
+})
 
 watch(typeFilter, (val) => { if (val !== "all") selectedDate.value = null })
 
