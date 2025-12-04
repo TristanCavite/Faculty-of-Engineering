@@ -1,6 +1,6 @@
 <template>
-  <main class="relative">
-    <div class="max-w-5xl px-5 pt-3 pb-4 mx-auto space-y-3 border rounded bg-neutral-50">
+  <main class="relative mb-4">
+    <div class="max-w-5xl px-3 pt-3 pb-4 mx-auto space-y-3 border rounded md:px-5 bg-neutral-50">
       <!-- Back -->
       <UiButton
         class="flex flex-row text-xs font-semibold text-gray-800 transition bg-gray-200 rounded md:text-sm font-montserrat hover:scale-105 hover:bg-gray-300"
@@ -175,3 +175,9 @@ function openPhotoModal(src: string, alt?: string) {
   showPhotoModal.value = true
 }
 </script>
+
+<style scoped>
+/* *{
+  outline:1px solid red;
+} */
+</style>

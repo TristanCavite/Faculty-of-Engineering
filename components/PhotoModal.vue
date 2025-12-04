@@ -57,12 +57,6 @@
                             >
                                 {{ isZoomed ? 'Reset' : 'Zoom' }}
                             </UiButton>
-                            <UiButton
-                                class="px-3 py-1 rounded bg-white/10 hover:bg-white/20"
-                                @click="close"
-                            >
-                                Close
-                            </UiButton>
                         </div>
                         <div class="text-xs text-gray-300 select-none">{{ imageSizeText }}</div>
                     </div>
