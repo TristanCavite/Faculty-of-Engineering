@@ -1,5 +1,5 @@
 <template>
-  <main class="p-6 space-y-6">
+  <main class="py-4 space-y-6 md:p-6">
     <div class="max-w-5xl mx-auto ">
       <div class="flex flex-col items-start mb-6">
         <div >
@@ -64,7 +64,7 @@
             </div>
 
             <span class="text-lg font-bold text-gray-900 hover:text-maroon">
-              <NuxtLink to="`/events/${ev.id}`" class="text-left">
+              <NuxtLink :to="`/events/${ev.id}`" class="text-left">
                 {{ ev.title }}
               </NuxtLink>
             </span>
@@ -75,11 +75,11 @@
             </div>
 
             <div v-if="ev.description" class="text-sm text-gray-600">
-              <p v-html="truncateHtml(ev.description, 220)"></p>
+              <p v-html="truncateHtml(ev.description, 220)" class="truncate"></p>
             </div>
             
             <div>
-              <NuxtLink to="`/events/${ev.id}`" class="text-sm font-semibold text-gray-700 hover:text-maroon">
+              <NuxtLink :to="`/events/${ev.id}`" class="text-sm font-semibold text-gray-700 hover:text-maroon hover:scale-105">
                 Read more →
               </NuxtLink>
             </div>

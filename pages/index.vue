@@ -57,79 +57,14 @@
       <!-- Layout -->
       <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[1fr_420px] md:px-10">
         <!-- LEFT: Events -->
-        <div class="flex flex-col w-full space-y-6">
-          <template v-if="filteredEvents.length > 0">
-            <div v-for="event in filteredEvents" :key="event.id" class="w-full pt-5 pb-5 border rounded-lg bg-neutral-50">
-              <span class="pl-5 pr-5 font-semibold text-red-800 text-md font-inter md:text-2xl">
-                EVENT DATE: {{ formatEventDate(event.date, event.dateEnd) }}
-              </span>
-
-              <UiCarousel class="relative w-full max-w-none md:max-w-7xl" :plugins="[autoplay]" @init-api="(api) => setEventApi(event.id, api)">
-                <UiCarouselContent>
-                  <UiCarouselItem v-for="(img, i) in event.coverImages" :key="i">
-                    <div class="flex flex-shrink-0 pt-4 pb-4 transition-transform duration-500" :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }">
-                      <div class="flex-shrink-0 w-full cursor-pointer" @click="openPhotoModal(img, '')">
-                        <img :src="img" alt="" class="object-cover w-full h-64 rounded-md md:h-80 lg:h-96" />
-                      </div>
-                    </div>
-                  </UiCarouselItem>
-                </UiCarouselContent>
-                <UiCarouselPrevious
-                  class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
-                  iconClass="size-5 md:size-6 text-white"
-                />
-                <UiCarouselNext
-                  class="!absolute !right-2 md:!right-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:h-12 !md:w-10 !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900"
-                  iconClass="size-5 md:size-6 text-white"
-                />
-
-                <div class="absolute z-10 flex space-x-2 -translate-x-1/2 left-1/2 bottom-6">
-                  <span
-                    v-for="(img, i) in event.coverImages"
-                    :key="i"
-                    class="bg-gray-400 rounded-full size-2"
-                    :class="{ '!bg-gray-800 scale-125': getEventCurrentSlide(event.id) === i }"
-                    @click="setEventSlide(event.id, i)"
-                  />
-                </div>
-              </UiCarousel>
-
-              <div class="pb-2 pl-5 pr-5 md:pt-2">
-                <span class="text-xl font-semibold font-roboto md:text-2xl">{{ event.title }}</span>
-                <div class="text-sm italic text-gray-600">Published: {{ formatPublishDate(event.createdAt) }}</div>
-              </div>
-
-              <div class="pl-5 pr-5 font-roboto"><p v-html="event.description"></p></div>
-              <div class="flex justify-between pl-5 pr-5 mt-4">
-                <UiButton
-                  @click="readMore(event.id)"
-                  class="inline-block px-2 py-1 text-xs font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
-                >
-                  Read more...
-                </UiButton>
-                <ShareButton :item="{ id: event.id, type: 'event', slug: event.slug, title: event.title, excerpt: event.description }" />
-              </div>
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="flex h-[420px] w-full flex-col items-center justify-center rounded-xl border bg-white text-center text-gray-500 shadow">
-              <svg xmlns="http://www.w3.org/2000/svg" class="mb-4 text-red-700 h-14 w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 2v2m8-2v2M3 8h18M5 8h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12l-6 6m0-6l6 6" />
-              </svg>
-              <p class="text-lg font-semibold">No events on this day.</p>
-              <p class="text-sm">Try selecting another date on the calendar.</p>
-              <UiButton
-                v-if="selectedDate"
-                @click="selectedDate = null"
-                class="px-4 py-2 mt-4 text-sm font-semibold text-gray-700 bg-gray-300 rounded hover:bg-gray-400"
-              >
-                Show all events
-              </UiButton>
-            </div>
-          </template>
-        </div>
+        <EventsList :events="filteredEvents" 
+          :getEventCurrentSlide="getEventCurrentSlide" 
+          :setEventApi="setEventApi" 
+          :setEventSlide="setEventSlide" 
+          @openPhotoModal="openPhotoModal"
+          @formatPublishDate="formatPublishDate"
+          @readMore="readMore"
+        />
 
         <!-- RIGHT: Calendar + More -->
         <div class="hidden md:block">
@@ -173,12 +108,7 @@
         </div>
       </div> <!-- /grid -->
     </div>
-    <PhotoModal
-      v-model="showPhotoModal"
-      :src="photoModalSrc"
-      :alt="photoModalAlt"
-      @close="showPhotoModal = false"
-    />
+    
   </main>
 </template>
 
@@ -315,15 +245,6 @@ const listByType = computed(() => {
     String(v || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
   return sortedByDateDesc.value.filter(e => normalizeType(e.eventType) === typeFilter.value)
 })
-
-const oldEvents = computed<EventRecord[]>(() =>
-  sortedByDateDesc.value
-    .slice(MAX_VISIBLE)
-    .slice()
-    .sort((a, b) => msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date))
-    .slice(0, MAX_OLD_EVENTS)
-    .map((e) => ({ ...e, title: e.title ?? "" }))
-)
 
 // Provide a version typed to the MoreEvents component's EventRecord type (ensures title is a string)
 const moreEvents = computed<MoreEventsEventRecord[]>(() =>
