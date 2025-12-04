@@ -58,12 +58,12 @@
       <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[1fr_420px] md:px-10">
         <!-- LEFT: Events -->
         <EventsList :events="filteredEvents" 
-          :getEventCurrentSlide="getEventCurrentSlide" 
-          :setEventApi="setEventApi" 
-          :setEventSlide="setEventSlide" 
-          @openPhotoModal="openPhotoModal"
-          @formatPublishDate="formatPublishDate"
-          @readMore="readMore"
+          collection-name="events"
+          item-type="event"
+          primary-date-field="date"
+          type-field="eventType"
+          date-label="EVENT DATE"
+          :search-text="eventSearchText"
         />
 
         <!-- RIGHT: Calendar + More -->
@@ -231,6 +231,7 @@ onMounted(async () => {
 
 /* ---------- Filtering / lists ---------- */
 const typeFilter = ref<string>("all") // v-model from EventFilter
+const eventSearchText = ref<string>("")
 
 const MAX_VISIBLE = 3
 const MAX_OLD_EVENTS = 10
