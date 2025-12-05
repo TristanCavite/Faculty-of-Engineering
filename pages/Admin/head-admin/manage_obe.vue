@@ -34,9 +34,10 @@ import AdminSectionMediaContent from '@/components/Admin/AdminSectionMediaConten
 
 definePageMeta({
   middleware: ['auth'],
-  roles: ['faculty'],
-  layout: 'faculty',
+  roles: ['head_admin'],
+  layout: 'head-admin',
 })
+
 
 const db = useFirestore()
 const storage = useFirebaseStorage()

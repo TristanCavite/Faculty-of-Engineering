@@ -129,8 +129,8 @@ import UiSingleImageUpload from '@/components/Admin/UiSingleImageUpload.vue'
 
 definePageMeta({
   middleware: ['auth'],
-  roles: ['faculty'],
-  layout: 'faculty',
+  roles: ['head_admin'],
+  layout: 'head-admin',
 })
 
 const db = useFirestore()

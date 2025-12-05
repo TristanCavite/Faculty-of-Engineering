@@ -2,19 +2,22 @@
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Admission Page</h1>
+      <h1 class="text-2xl font-bold">Manage About Page</h1>
     </div>
 
     <!-- Section Selector -->
     <div>
       <label class="mb-1 block font-semibold">Select Section</label>
+
+      <!-- Static sections first, then extras -->
       <select v-model="selectedSection" class="select select-bordered w-full">
         <option disabled value="">-- Choose section --</option>
-        <option value="why_choose_vsu">Why Choose VSU?</option>
-        <option value="undergraduate">Undergraduate</option>
-        <option value="graduate">Graduate</option>
+        <option value="the_college">The College</option>
+        <option value="facilities">Facilities</option>
+        <option value="history">History</option>
+        <option value="map_location">Map and Location</option>
 
-        <!-- extras appended from Firestore collection -->
+        <!-- Extras: show saved title or "Extra Section" -->
         <option
           v-for="s in extraSections"
           :key="s.id"
@@ -25,43 +28,41 @@
       </select>
     </div>
 
-    <!-- Visibility toggle: for undergraduate and extras -->
-    <div
-      v-if="isUndergrad || isExtraSection"
-      class="rounded-lg border bg-white p-4 shadow"
-    >
-      <div class="flex items-start justify-between gap-6">
-        <div>
-          <h3 class="font-semibold">
-            {{ isUndergrad ? 'Show Undergraduate on public' : 'Show on public' }}
-          </h3>
-          <p class="text-sm text-gray-600">
-            When unchecked, this page is hidden from the public navbar and direct
-            links will return 404 / not be displayed.
-          </p>
-        </div>
-
-        <label class="flex select-none items-center gap-3">
-          <input
-            type="checkbox"
-            v-model="showSectionPublic"
-            class="h-5 w-5 cursor-pointer accent-green-600"
-            @change="saveVisibility"
-          />
-          <span class="text-sm font-medium">
-            {{ showSectionPublic ? 'Visible' : 'Hidden' }}
-          </span>
-        </label>
-      </div>
-
-      <p v-if="visSavedAt" class="mt-2 text-xs text-gray-500">
-        Updated: {{ visSavedAt }}
-      </p>
-    </div>
-
     <!-- Form Section -->
     <div v-if="selectedSection" class="grid gap-6">
-      <!-- Title / Name - only show for extras -->
+      <!-- Visibility toggle (only extra sections) -->
+      <div
+        v-if="isExtraSection"
+        class="rounded-lg border bg-white p-4 shadow"
+      >
+        <div class="flex items-start justify-between gap-6">
+          <div>
+            <h3 class="font-semibold">Show on public</h3>
+            <p class="text-sm text-gray-600">
+              When unchecked, this section is hidden from the public navbar and
+              direct links will return 404 / not be displayed.
+            </p>
+          </div>
+
+          <label class="flex select-none items-center gap-3">
+            <input
+              type="checkbox"
+              v-model="showSectionPublic"
+              class="h-5 w-5 cursor-pointer accent-green-600"
+              @change="saveVisibility"
+            />
+            <span class="text-sm font-medium">
+              {{ showSectionPublic ? 'Visible' : 'Hidden' }}
+            </span>
+          </label>
+        </div>
+
+        <p v-if="visSavedAt" class="mt-2 text-xs text-gray-500">
+          Updated: {{ visSavedAt }}
+        </p>
+      </div>
+
+      <!-- Title / Name - only for extra sections -->
       <div v-if="isExtraSection">
         <label class="mb-1 block font-semibold">Name / Title Section</label>
         <div class="flex gap-3">
@@ -90,7 +91,7 @@
         :isEditing="isEditing"
         :isDirty="isDirty"
         :saving="saving"
-        :showVideoField="selectedSection === 'why_choose_vsu'"
+        :showVideoField="true"
         :imageUploadHandler="handleEditorImageUpload"
         :notice="notice"
         @clear-notice="notice = null"
@@ -103,18 +104,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import AdminSectionMediaContent from '@/components/Admin/AdminSectionMediaContent.vue'
 import { useMultiSectionContent } from '@/composables/useMultiSectionContent'
 
 definePageMeta({
   middleware: ['auth'],
-  roles: ['faculty'],
-  layout: 'faculty',
+  roles: ['head_admin'],
+  layout: 'head-admin',
 })
 
-// Reuse the same composable, but in "admission" mode
+
 const {
+  // state
   isEditing,
   selectedSection,
   saving,
@@ -126,16 +127,14 @@ const {
   notice,
   isExtraSection,
   isDirty,
+  // actions
   handleImage,
   handleEditorImageUpload,
   saveTitle,
   saveSection,
   toggleEdit,
   saveVisibility,
-} = useMultiSectionContent('admission')
-
-// Local helper for the special Undergraduate section
-const isUndergrad = computed(() => selectedSection.value === 'undergraduate')
+} = useMultiSectionContent('about')
 </script>
 
 <style>

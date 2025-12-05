@@ -78,9 +78,10 @@
 <script setup lang="ts">
 definePageMeta({
   middleware: ['auth'],
-  roles: ['faculty'],
-  layout: 'faculty',
+  roles: ['head_admin'],
+  layout: 'head-admin',
 })
+
 
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'

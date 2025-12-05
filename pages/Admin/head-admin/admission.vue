@@ -109,9 +109,10 @@ import { useMultiSectionContent } from '@/composables/useMultiSectionContent'
 
 definePageMeta({
   middleware: ['auth'],
-  roles: ['faculty'],
-  layout: 'faculty',
+  roles: ['head_admin'],
+  layout: 'head-admin',
 })
+
 
 // Reuse the same composable, but in "admission" mode
 const {

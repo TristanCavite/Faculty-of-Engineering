@@ -32,7 +32,7 @@
             </button>
           </div>
 
-          <!-- Profile row (like in Manage Accounts) -->
+          <!-- Profile row -->
           <div class="flex items-center gap-3">
             <img
               :src="userPhoto || '/placeholder.png'"
@@ -44,7 +44,6 @@
                 {{ userName }}
               </span>
               <span class="text-xs text-slate-500">
-                <!-- show role if provided, then email -->
                 <span v-if="userRoleLabel">
                   {{ userRoleLabel }} ·
                 </span>
@@ -201,6 +200,25 @@
                 />
               </label>
 
+              <!-- Manage Gallery -->
+              <label
+                class="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50"
+              >
+                <div>
+                  <p class="text-sm font-medium text-slate-800">
+                    Manage Gallery
+                  </p>
+                  <p class="text-xs text-slate-500">
+                    Upload and organize gallery photos.
+                  </p>
+                </div>
+                <input
+                  v-model="localAccess.manageGallery"
+                  type="checkbox"
+                  class="mt-1 h-4 w-4 rounded border-slate-300 text-maroon focus:ring-maroon"
+                />
+              </label>
+
               <!-- Manage About -->
               <label
                 class="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50"
@@ -255,6 +273,7 @@ type ModuleAccess = {
   manageNews: boolean;
   manageResearch: boolean;
   manageSocials: boolean;
+  manageGallery: boolean;
   manageAbout: boolean;
 };
 
@@ -264,7 +283,6 @@ const props = defineProps<{
   userEmail: string;
   userRoleLabel?: string;
   userPhoto?: string | null;
-  // later we will feed this from Firestore
   initialAccess?: Partial<ModuleAccess>;
 }>();
 
@@ -287,6 +305,7 @@ const localAccess = reactive<ModuleAccess>({
   manageNews: props.initialAccess?.manageNews ?? false,
   manageResearch: props.initialAccess?.manageResearch ?? false,
   manageSocials: props.initialAccess?.manageSocials ?? false,
+  manageGallery: props.initialAccess?.manageGallery ?? false,
   manageAbout: props.initialAccess?.manageAbout ?? false,
 });
 
@@ -301,6 +320,7 @@ watch(
     localAccess.manageNews = value?.manageNews ?? false;
     localAccess.manageResearch = value?.manageResearch ?? false;
     localAccess.manageSocials = value?.manageSocials ?? false;
+    localAccess.manageGallery = value?.manageGallery ?? false;
     localAccess.manageAbout = value?.manageAbout ?? false;
   },
   { deep: true }
@@ -311,7 +331,6 @@ function handleClose() {
 }
 
 function handleSave() {
-  // for now we just emit – later we’ll connect this to Firestore
   emit("save", { ...localAccess });
   open.value = false;
 }

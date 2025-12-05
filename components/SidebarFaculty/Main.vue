@@ -25,8 +25,7 @@
               >
                 <span>Manage</span>
                 <span class="text-xs">
-                  <!-- simple caret indicator -->
-                  {{ manageOpen ? "▲" : "▼" }}
+                  {{ manageOpen ? '▲' : '▼' }}
                 </span>
               </button>
 
@@ -35,15 +34,7 @@
                   v-if="manageOpen"
                   class="mt-1 space-y-1 pl-4 text-sm font-normal"
                 >
-                  <!-- Each child item is gated by its own flag -->
-                  <li v-if="hasManageObe">
-                    <NuxtLink
-                      to="/admin/faculty/manage_obe"
-                      class="block rounded px-3 py-2 transition duration-300 hover:scale-105 hover:bg-yellow-400"
-                    >
-                      Manage OBE
-                    </NuxtLink>
-                  </li>
+                  <!-- Alphabetical: About, Admission, Downloads, Events, Gallery, News, OBE, Research, Socials -->
 
                   <li v-if="hasManageAbout">
                     <NuxtLink
@@ -81,12 +72,30 @@
                     </NuxtLink>
                   </li>
 
+                  <li v-if="hasManageGallery">
+                    <NuxtLink
+                      to="/admin/faculty/manage_gallery"
+                      class="block rounded px-3 py-2 transition duration-300 hover:scale-105 hover:bg-yellow-400"
+                    >
+                      Manage Gallery
+                    </NuxtLink>
+                  </li>
+
                   <li v-if="hasManageNews">
                     <NuxtLink
                       to="/admin/faculty/news"
                       class="block rounded px-3 py-2 transition duration-300 hover:scale-105 hover:bg-yellow-400"
                     >
                       Manage News
+                    </NuxtLink>
+                  </li>
+
+                  <li v-if="hasManageObe">
+                    <NuxtLink
+                      to="/admin/faculty/manage_obe"
+                      class="block rounded px-3 py-2 transition duration-300 hover:scale-105 hover:bg-yellow-400"
+                    >
+                      Manage OBE
                     </NuxtLink>
                   </li>
 
@@ -142,37 +151,30 @@ import { useRouter } from "vue-router";
 const auth = useFirebaseAuth();
 const router = useRouter();
 
-// 🔐 current Firebase user (auth)
 const currentUser = useCurrentUser();
-// 🔥 Firestore
 const db = useFirestore();
 
-// state for dropdown open/close
-const manageOpen = ref(true); // or false if you want collapsed by default
+const manageOpen = ref(true);
 
-// Point to this user's Firestore doc: users/{uid}
 const userDocRef = computed(() => {
   if (!currentUser.value) return null;
   return doc(db, "users", currentUser.value.uid);
 });
 
-// Live user document from Firestore
 const { data: userDoc } = useDocument(userDocRef);
 
-// moduleAccess object from Firestore (or empty object)
 const moduleAccess = computed(() => userDoc.value?.moduleAccess || {});
 
-// individual flags
 const hasManageObe = computed(() => !!moduleAccess.value.manageObe);
 const hasManageAbout = computed(() => !!moduleAccess.value.manageAbout);
 const hasManageAdmission = computed(() => !!moduleAccess.value.manageAdmission);
 const hasManageDownloads = computed(() => !!moduleAccess.value.manageDownloads);
 const hasManageEvents = computed(() => !!moduleAccess.value.manageEvents);
+const hasManageGallery = computed(() => !!moduleAccess.value.manageGallery);
 const hasManageNews = computed(() => !!moduleAccess.value.manageNews);
 const hasManageResearch = computed(() => !!moduleAccess.value.manageResearch);
 const hasManageSocials = computed(() => !!moduleAccess.value.manageSocials);
 
-// show “Manage” group only if at least one permission is true
 const hasAnyManageAccess = computed(
   () =>
     hasManageObe.value ||
@@ -180,6 +182,7 @@ const hasAnyManageAccess = computed(
     hasManageAdmission.value ||
     hasManageDownloads.value ||
     hasManageEvents.value ||
+    hasManageGallery.value ||
     hasManageNews.value ||
     hasManageResearch.value ||
     hasManageSocials.value
