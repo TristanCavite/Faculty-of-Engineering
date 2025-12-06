@@ -1,7 +1,7 @@
 <template>
-  <div class="max-w-4xl px-4 py-5 mx-auto border rounded md:py-10">
+  <div class="max-w-4xl px-4 py-5 mx-auto mb-4 border rounded">
     <!-- Back button -->
-    <div class="mb-6">
+    <div class="mb-2">
       <UiButton
         variant="outline"
         class="flex flex-row px-2 py-1 text-sm font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"

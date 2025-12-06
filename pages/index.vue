@@ -57,13 +57,18 @@
       <!-- Layout -->
       <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[1fr_420px] md:px-10">
         <!-- LEFT: Events -->
-        <EventsList :events="filteredEvents" 
-          collection-name="events"
-          item-type="event"
-          primary-date-field="date"
-          type-field="eventType"
-          date-label="EVENT DATE"
-          :search-text="eventSearchText"
+        <EventsList 
+        :events="filteredEvents"
+        collection-name="events"
+        item-type="event"
+        primary-date-field="date"
+        type-field="eventType"
+        date-label="EVENT DATE"
+        :search-text="eventSearchText"
+        @read-more="readMore"
+        @set-event-api="setEventApi"
+        @set-event-slide="setEventSlide"
+        :get-event-current-slide="getEventCurrentSlide"
         />
 
         <!-- RIGHT: Calendar + More -->
@@ -90,10 +95,13 @@
             </div>
 
             <MoreEvents
-              :events="moreEvents"
-              v-model:modelValue="showMoreEvents"
-              :max-visible="MAX_VISIBLE"
-              :max-old-events="MAX_OLD_EVENTS"
+              :items="moreEvents"
+              see-all-label="See all events"
+              see-all-route="/events/moreEvents"
+              item-route-base="/events"
+              :maxVisible="MAX_VISIBLE"
+              :maxOldItems="MAX_OLD_EVENTS"
+              :current-type="typeFilter" 
             />
           </div>
         </div>
@@ -126,18 +134,22 @@ import type { EventRecord as MoreEventsEventRecord } from "@/components/MoreEven
 
 const db = useFirestore()
 const router = useRouter()
-
+const route = useRoute()
 /* ---------- Hero carousel (top) ---------- */
 const images = ref<Array<{ src: string; alt?: string }>>([])
 const currentIndex = ref(0)
 const ratioPadding = "42.857%"
 const api = ref<any>()
 const autoplay = Autoplay({ delay: 3000 })
-function setApi(val: any) { api.value = val }
+function setApi(val: any) {
+  api.value = val
+}
 
 watchOnce(api, (embla) => {
   if (!embla) return
-  const updateFromApi = () => { currentIndex.value = embla.selectedScrollSnap() }
+  const updateFromApi = () => {
+    currentIndex.value = embla.selectedScrollSnap()
+  }
   updateFromApi()
   embla.on("select", updateFromApi)
 })
@@ -164,11 +176,11 @@ const eventCurrentSlides = ref<Map<string, number>>(new Map())
 
 function setEventApi(eventId: string, emblaApi: any) {
   eventCarouselApis.value.set(eventId, emblaApi)
-  
+
   if (emblaApi) {
     // Initialize current slide
     eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
-    
+
     // Listen for slide changes
     emblaApi.on("select", () => {
       eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
@@ -196,17 +208,6 @@ onMounted(async () => {
   })) as unknown as EventRecord[]
 })
 
-const {
-  selectedDate,
-  calendarAttributes,
-  handleDayClick,
-  formatEventDate,
-  formatPublishDate,
-  miniDate,
-  msFrom,
-  bySelectedDate,
-} = useEventsCalendar(events, { scrollTargetId: "events-list" })
-
 /* ---------- Load homepage gallery images ---------- */
 onMounted(async () => {
   const qRef = query(collection(db, "homepage_gallery"), orderBy("createdAt", "desc"))
@@ -230,49 +231,72 @@ onMounted(async () => {
 })
 
 /* ---------- Filtering / lists ---------- */
-const typeFilter = ref<string>("all") // v-model from EventFilter
+const typeFilter = ref<string>((route.query.type as string) || "all"); // v-model from EventFilter
 const eventSearchText = ref<string>("")
 
 const MAX_VISIBLE = 3
 const MAX_OLD_EVENTS = 10
 
+// Helper: normalize status
+const normalizeStatus = (value: any) =>
+  String(value || "").toLowerCase().trim()
+
+// ✅ Only published events go into the calendar
+const calendarEvents = computed<EventRecord[]>(() =>
+  events.value.filter((e: any) => normalizeStatus(e.status) === "published"),
+)
+
+const {
+  selectedDate,
+  calendarAttributes,
+  handleDayClick,
+  formatEventDate,
+  formatPublishDate,
+  miniDate,
+  msFrom,
+  bySelectedDate,
+} = useEventsCalendar(calendarEvents, { scrollTargetId: "events-list" })
+
+// Only keep items with status === 'published' for the main list
 const sortedByDateDesc = computed(() =>
-  events.value.slice().sort((a, b) => msFrom(b.date) - msFrom(a.date))
+  events.value
+    .filter((e: any) => normalizeStatus(e.status) === "published")
+    .slice()
+    .sort((a, b) => msFrom(b.date) - msFrom(a.date)),
 )
 
 const listByType = computed(() => {
   if (typeFilter.value === "all") return sortedByDateDesc.value
+
   const normalizeType = (v: any) =>
-    String(v || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
-  return sortedByDateDesc.value.filter(e => normalizeType(e.eventType) === typeFilter.value)
+    String(v || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+
+  return sortedByDateDesc.value.filter((e: any) =>
+    normalizeType(e.eventType) === typeFilter.value,
+  )
 })
 
-// Provide a version typed to the MoreEvents component's EventRecord type (ensures title is a string)
-const moreEvents = computed<MoreEventsEventRecord[]>(() =>
-  sortedByDateDesc.value
-    .slice(MAX_VISIBLE)
-    .slice()
-    .sort((a, b) => msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date))
-    .slice(0, MAX_OLD_EVENTS)
-    .map((e) => ({ ...e, title: e.title ?? "" })) as unknown as MoreEventsEventRecord[]
-)
-
-// Computed list used in the template; if a date is selected, apply calendar filtering.
-// The composable exposes `bySelectedDate` which may be a predicate function or a ref to one.
-// Update the filteredEvents computed property
 const filteredEvents = computed(() => {
   let result: EventRecord[] = []
-  
+
   if (selectedDate.value) {
-    // If the composable provided a predicate function or a list-filtering function, handle both cases.
+    // date-based filtering via composable (same logic you already had)
     if (typeof bySelectedDate === "function") {
       const filterResult = (bySelectedDate as any)(listByType.value)
       if (Array.isArray(filterResult)) {
         result = filterResult as EventRecord[]
       } else if (typeof filterResult === "function") {
-        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+        result = listByType.value.filter(
+          filterResult as (e: EventRecord) => boolean,
+        )
       } else {
-        result = listByType.value.filter(bySelectedDate as unknown as (e: EventRecord) => boolean)
+        result = listByType.value.filter(
+          bySelectedDate as unknown as (e: EventRecord) => boolean,
+        )
       }
     } else if (typeof (bySelectedDate as any)?.value === "function") {
       const fn = (bySelectedDate as any).value
@@ -280,36 +304,89 @@ const filteredEvents = computed(() => {
       if (Array.isArray(filterResult)) {
         result = filterResult as EventRecord[]
       } else if (typeof filterResult === "function") {
-        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+        result = listByType.value.filter(
+          filterResult as (e: EventRecord) => boolean,
+        )
       } else {
-        result = listByType.value.filter(fn as unknown as (e: EventRecord) => boolean)
+        result = listByType.value.filter(
+          fn as unknown as (e: EventRecord) => boolean,
+        )
       }
     } else {
-      // Fallback: match by date string
-      result = listByType.value.filter((e) => {
-        const maybeDate = (e as any).date
+      // fallback: match by date string
+      result = listByType.value.filter((e: any) => {
+        const maybeDate = e.date
         const dateObj = maybeDate
-          ? (typeof maybeDate.toDate === "function" ? maybeDate.toDate() : new Date(maybeDate))
+          ? typeof maybeDate.toDate === "function"
+            ? maybeDate.toDate()
+            : new Date(maybeDate)
           : null
         const d = dateObj ? dateObj.toDateString() : ""
-        const sel = selectedDate.value ? new Date(selectedDate.value) : null
+        const sel = selectedDate.value
+          ? new Date(selectedDate.value as unknown as string)
+          : null
         const selStr = sel ? sel.toDateString() : ""
         return d === selStr
       })
     }
-  } else {
-    result = listByType.value
+
+    // ✅ when a date is selected, show *all* matching events (no limit)
+    return result
   }
-  
-  // LIMIT TO MAX_VISIBLE (3) EVENTS
-  return result.slice(0, MAX_VISIBLE)
+
+  // ❗ no date selected → act like homepage: limit to MAX_VISIBLE
+  return listByType.value.slice(0, MAX_VISIBLE)
 })
 
-watch(typeFilter, (val) => { if (val !== "all") selectedDate.value = null })
+// --- Remaining published events as "Recents" ---
+const visibleIds = computed(() => new Set(filteredEvents.value.map((e) => e.id)))
+
+const moreEvents = computed<MoreEventsEventRecord[]>(() =>
+  listByType.value
+    // remove ones already shown in EventsList
+    .filter((e) => !visibleIds.value.has(e.id))
+    .slice()
+    .sort(
+      (a: any, b: any) =>
+        msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date),
+    )
+    .slice(0, MAX_OLD_EVENTS)
+    .map(
+      (e: any) =>
+        ({
+          ...e,
+          title: e.title ?? "",
+        }) as MoreEventsEventRecord,
+    ),
+)
+
+watch(typeFilter, (val) => {
+  // your existing logic:
+  if (val !== "all") selectedDate.value = null
+
+  // 🔴 NEW: keep ?type= in the URL of "/"
+  router.replace({
+    query: {
+      ...route.query,
+      type: val !== "all" ? val : undefined,
+    },
+  })
+})
+
 
 /* ---------- Navigation ---------- */
-function readMore(id: string) { router.push(`/events/${id}`) }
-function goToMore() { router.push("/events/moreEvents") }
+function readMore(id: string) {
+  router.push(`/events/${id}`)
+}
+function goToMore() {
+  router.push({
+    path: "/events/moreEvents",
+    query: {
+      // only include type in the URL if not "all"
+      type: typeFilter.value !== "all" ? typeFilter.value : undefined,
+    },
+  })
+}
 </script>
 
 <style scoped>
