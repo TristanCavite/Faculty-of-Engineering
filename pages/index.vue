@@ -10,44 +10,33 @@
         <UiCarouselContent>
           <UiCarouselItem v-for="(img, i) in images" :key="i" class="basis-full">
             <div class="p-1">
-              <div
-                class="relative mx-auto w-[100%] md:w-[85%]"
-                :style="{ paddingBottom: ratioPadding }"
-              >
-                <div class="absolute inset-0 overflow-hidden rounded-xl">
-                  <div class="h-full shrink-0 grow-0">
-                    <img
-                      :src="img.src"
-                      :alt="img.alt"
-                      class="h-full w-full object-cover object-center"
-                      loading="lazy"
-                      decoding="async"
-                    />
+              <div class="relative mx-auto w-full md:w-[85%] min-h-[240px] md:min-h-0" :style="{ paddingBottom: ratioPadding }">
+                <div class="absolute inset-0 overflow-hidden rounded-xl ">
+                  <div class="w-full h-full cursor-pointer" @click="openPhotoModal(img.src, img.alt)">
+                    <img :src="img.src" :alt="img.alt" class="object-cover object-center w-full h-full" loading="lazy" decoding="async" />
                   </div>
                 </div>
               </div>
             </div>
           </UiCarouselItem>
         </UiCarouselContent>
-
+        
         <UiCarouselPrevious
-          class="!aspect-auto !h-12 !w-10 !rounded-xl !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
+          class="!absolute !left-2 md:!left-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:w-10 !md:rounded-xl !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
           iconClass="size-5 md:size-6 text-white"
         />
         <UiCarouselNext
-          class="!aspect-auto !h-12 !w-10 !rounded-xl !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
+          class="!absolute !right-2 md:!right-none !top-1/2 !-translate-y-1/2 !aspect-auto !md:w-10 !md:rounded-xl !rounded-full !bg-red-900 hover:!bg-red-950 disabled:!bg-red-900 md:!h-28"
           iconClass="size-5 md:size-6 text-white"
         />
       </UiCarousel>
 
       <!-- Dots -->
-      <div
-        class="absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 transform space-x-2 md:bottom-4"
-      >
+      <div class="absolute z-10 flex space-x-2 transform -translate-x-1/2 bottom-2 left-1/2 md:bottom-4">
         <span
           v-for="(_, i) in images"
           :key="i"
-          class="size-1 rounded-full bg-gray-400 md:size-2"
+          class="bg-gray-400 rounded-full size-2"
           :class="{ 'bg-gray-800': currentIndex === i }"
           @click="setCurrentSlide(i)"
         />
@@ -55,248 +44,71 @@
     </div>
 
     <!-- EVENTS -->
-    <div class="mx-auto py-5 md:max-w-7xl md:px-4 md:py-10">
-      <div class="text-center md:pt-4">
-        <span
-          class="font-playfair text-xl font-extrabold uppercase tracking-wide text-maroon md:text-5xl"
-        >
+    <div class="py-5 mx-auto md:max-w-7xl md:px-4 md:py-10">
+      <div class="mt-4 mb-4 text-center md:mb-8">
+        <span class="text-2xl font-extrabold tracking-wide uppercase font-playfair text-maroon md:text-5xl">
           EVENTS
         </span>
       </div>
 
       <!-- Filter bar -->
-      <div class="mt-6 flex items-center justify-between gap-3 md:px-10">
-        <EventFilter v-model="typeFilter" />
-        <UiButton
-          v-if="selectedDate"
-          class="rounded bg-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-300"
-          @click="selectedDate = null"
-        >
-          Clear date
-        </UiButton>
-      </div>
-
+      <EventFilter v-model="typeFilter" class="ml-4 md:ml-10"/>
+    
       <!-- Layout -->
-      <div
-        id="events-list"
-        class="mt-4 grid grid-cols-1 gap-10 md:grid-cols-[minmax(680px,1fr)_420px] md:px-10"
-      >
+      <div id="events-list" class="mt-2 md:mt-4 grid grid-cols-1 gap-10 md:grid-cols-[1fr_420px] md:px-10">
         <!-- LEFT: Events -->
-        <div class="flex w-full flex-col space-y-6">
-          <template v-if="filteredEvents.length > 0">
-            <div
-              v-for="event in filteredEvents"
-              :key="event.id"
-              class="w-full rounded-lg bg-white p-5 shadow-2xl"
-            >
-              <span class="text-md font-inter font-semibold text-red-800 md:text-2xl">
-                EVENT DATE: {{ formatEventDate(event.date, event.dateEnd) }}
-              </span>
-
-              <div class="relative mx-auto overflow-hidden">
-                <div
-                  class="flex flex-shrink-0 pb-4 pt-4 transition-transform duration-500"
-                  :style="{ transform: `translateX(-${event.currentSlide || 0}00%)` }"
-                >
-                  <div v-for="(img, i) in event.coverImages" :key="i" class="w-full flex-shrink-0">
-                    <img :src="img" alt="" class="h-64 w-full object-cover md:h-80 lg:h-96" />
-                  </div>
-                </div>
-
-                <button
-                  class="absolute right-3 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/80 text-red-900 shadow-md hover:scale-105 hover:bg-white md:size-10"
-                  @click="event.currentSlide = (event.currentSlide + 1) % event.coverImages.length"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="mx-auto size-6"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-
-                <button
-                  class="absolute left-3 top-1/2 z-10 size-9 -translate-y-1/2 rounded-full bg-white/80 text-red-900 shadow-md hover:scale-105 hover:bg-white md:size-10"
-                  @click="
-                    event.currentSlide =
-                      (event.currentSlide - 1 + event.coverImages.length) % event.coverImages.length
-                  "
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="mx-auto size-6"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-
-                <div class="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 space-x-2">
-                  <span
-                    v-for="(img, i) in event.coverImages"
-                    :key="i"
-                    class="h-2 w-2 rounded-full bg-gray-400"
-                    :class="{ 'bg-gray-800': (event.currentSlide || 0) === i }"
-                    @click="event.currentSlide = i"
-                  />
-                </div>
-              </div>
-
-              <div class="pb-2 md:pt-2">
-                <span class="font-roboto text-xl font-semibold md:text-2xl">{{ event.title }}</span>
-                <div class="text-sm italic text-gray-600">
-                  Published: {{ formatPublishDate(event.createdAt) }}
-                </div>
-              </div>
-
-              <div class="font-roboto"><p v-html="event.description"></p></div>
-              <div class="flex justify-between">
-                <UiButton
-                  @click="readMore(event.id)"
-                  class="inline-block rounded bg-gray-200 px-2 py-1 font-montserrat text-xs font-semibold text-gray-800 transition hover:scale-105 hover:bg-gray-300"
-                >
-                  Read more...
-                </UiButton>
-                <ShareButton
-                  :item="{
-                    id: event.id,
-                    type: 'event',
-                    slug: event.slug,
-                    title: event.title,
-                    excerpt: event.description,
-                  }"
-                />
-              </div>
-            </div>
-          </template>
-
-          <template v-else>
-            <div
-              class="flex h-[420px] w-full flex-col items-center justify-center rounded-xl border bg-white text-center text-gray-500 shadow"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="mb-4 h-14 w-14 text-red-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8 2v2m8-2v2M3 8h18M5 8h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2z"
-                />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12l-6 6m0-6l6 6" />
-              </svg>
-              <p class="text-lg font-semibold">No events on this day.</p>
-              <p class="text-sm">Try selecting another date on the calendar.</p>
-              <UiButton
-                v-if="selectedDate"
-                @click="selectedDate = null"
-                class="mt-4 rounded bg-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-400"
-              >
-                Show all events
-              </UiButton>
-            </div>
-          </template>
-        </div>
+        <EventsList :events="filteredEvents" 
+          collection-name="events"
+          item-type="event"
+          primary-date-field="date"
+          type-field="eventType"
+          date-label="EVENT DATE"
+          :search-text="eventSearchText"
+        />
 
         <!-- RIGHT: Calendar + More -->
-        <div class="hidden md:block md:w-[420px] md:justify-self-end">
-          <div class="space-y-5">
-            <div class="rounded-xl bg-white p-6 shadow-xl">
+        <div class="hidden md:block">
+          <div class="flex flex-col">
+            <div class="flex justify-end">
+              <UiButton
+                v-if="selectedDate"
+                class="px-2 py-1 mb-4 font-semibold text-white bg-red-900 rounded font-montserrat hover:bg-red-900 hover:scale-105"
+                @click="selectedDate = null"
+              >
+                Clear Date Filter
+              </UiButton>
+            </div>
+            <div class="mb-5 border rounded-xl">
               <ClientOnly>
                 <AutoFitCalendar
-                  :attributes="calendarAttributes"
-                  v-model:selectedDate="selectedDate"
-                  @date-click="handleDayClick"
+                :attributes="calendarAttributes"
+                v-model:selectedDate="selectedDate"
+                @date-click="handleDayClick"
+                class="custom-calendar"
                 />
               </ClientOnly>
             </div>
 
-            <div
-              v-if="oldEvents.length"
-              class="rounded-xl border border-neutral-200 bg-white p-6 shadow-xl"
-            >
-              <div
-                class="mb-3 flex cursor-pointer items-center gap-2 border-b border-neutral-300 pb-3"
-                @click="goToMore"
-                role="button"
-                aria-label="View all events"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 text-maroon"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M12 8v5l3 3 1.5-1.5L14 12.75V8h-2z" />
-                  <path d="M12 2a10 10 0 100 20 10 10 0 000-20zM4 12a8 8 0 1116 0 8 8 0 01-16 0z" />
-                </svg>
-                <div class="text-lg font-semibold text-maroon hover:underline">More events</div>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="ml-auto h-4 w-4 text-gray-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                >
-                  <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </div>
-
-              <ul class="space-y-2">
-                <li
-                  v-for="ev in oldEvents"
-                  :key="ev.id"
-                  class="flex items-start justify-between gap-3"
-                >
-                  <button
-                    class="text-left text-sm font-medium text-gray-800 hover:underline"
-                    @click="readMore(ev.id)"
-                    type="button"
-                  >
-                    {{ ev.title }}
-                  </button>
-                  <span class="shrink-0 text-xs text-gray-500">{{
-                    miniDate(ev.createdAt || ev.date)
-                  }}</span>
-                </li>
-              </ul>
-
-              <div class="mt-4 hidden md:flex md:justify-end">
-                <button
-                  @click="goToMore"
-                  class="text-sm font-semibold text-maroon hover:underline"
-                  type="button"
-                >
-                  See all events →
-                </button>
-              </div>
-              <div class="mt-4 text-center md:hidden">
-                <button
-                  @click="goToMore"
-                  class="text-sm font-semibold text-maroon hover:underline"
-                  type="button"
-                >
-                  See all events →
-                </button>
-              </div>
-            </div>
+            <MoreEvents
+              :events="moreEvents"
+              v-model:modelValue="showMoreEvents"
+              :max-visible="MAX_VISIBLE"
+              :max-old-events="MAX_OLD_EVENTS"
+            />
           </div>
         </div>
-      </div>
-      <!-- /grid -->
+         <!-- See all (mobile) -->
+        <div class="text-center md:hidden">
+          <UiButton
+            @click="goToMore"
+            class="text-base font-semibold text-red-900 bg-transparent hover:bg-transparent"
+          >
+            See all events...
+          </UiButton>
+        </div>
+      </div> <!-- /grid -->
     </div>
+    
   </main>
 </template>
 
@@ -310,6 +122,7 @@ import { collection, getDocs, orderBy, query, where } from "firebase/firestore" 
 import { computed, onMounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useFirestore } from "vuefire"
+import type { EventRecord as MoreEventsEventRecord } from "@/components/MoreEvents.vue"
 
 const db = useFirestore()
 const router = useRouter()
@@ -330,10 +143,50 @@ watchOnce(api, (embla) => {
 })
 const setCurrentSlide = (i: number) => api.value?.scrollTo(i)
 
-/* ---------- Events + calendar ---------- */
+/* ---------- Photo modal ---------- */
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+const showMoreEvents = ref(true)
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
+
+/* ---------- Events + calendar via composable ---------- */
 const events = ref<EventRecord[]>([])
 
-/** Load ONLY published events */
+// Track carousel APIs and current slides for each event
+const eventCarouselApis = ref<Map<string, any>>(new Map())
+const eventCurrentSlides = ref<Map<string, number>>(new Map())
+
+function setEventApi(eventId: string, emblaApi: any) {
+  eventCarouselApis.value.set(eventId, emblaApi)
+  
+  if (emblaApi) {
+    // Initialize current slide
+    eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
+    
+    // Listen for slide changes
+    emblaApi.on("select", () => {
+      eventCurrentSlides.value.set(eventId, emblaApi.selectedScrollSnap())
+    })
+  }
+}
+
+function getEventCurrentSlide(eventId: string): number {
+  return eventCurrentSlides.value.get(eventId) || 0
+}
+
+function setEventSlide(eventId: string, slideIndex: number) {
+  const api = eventCarouselApis.value.get(eventId)
+  if (api) {
+    api.scrollTo(slideIndex)
+  }
+}
+
 onMounted(async () => {
   // Prefer server-side filter
   const qRef = query(collection(db, "events"), where("published", "==", true))
@@ -383,6 +236,7 @@ onMounted(async () => {
 
 /* ---------- Filtering / lists ---------- */
 const typeFilter = ref<string>("all") // v-model from EventFilter
+const eventSearchText = ref<string>("")
 
 const MAX_VISIBLE = 3
 const MAX_OLD_EVENTS = 10
@@ -404,14 +258,63 @@ const listByType = computed(() => {
   )
 })
 
-const filteredEvents = computed(() => bySelectedDate(listByType.value).slice(0, MAX_VISIBLE))
-const oldEvents = computed(() =>
+// Provide a version typed to the MoreEvents component's EventRecord type (ensures title is a string)
+const moreEvents = computed<MoreEventsEventRecord[]>(() =>
   sortedByDateDesc.value
     .slice(MAX_VISIBLE)
     .slice()
     .sort((a, b) => msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date))
     .slice(0, MAX_OLD_EVENTS)
+    .map((e) => ({ ...e, title: e.title ?? "" })) as unknown as MoreEventsEventRecord[]
 )
+
+// Computed list used in the template; if a date is selected, apply calendar filtering.
+// The composable exposes `bySelectedDate` which may be a predicate function or a ref to one.
+// Update the filteredEvents computed property
+const filteredEvents = computed(() => {
+  let result: EventRecord[] = []
+  
+  if (selectedDate.value) {
+    // If the composable provided a predicate function or a list-filtering function, handle both cases.
+    if (typeof bySelectedDate === "function") {
+      const filterResult = (bySelectedDate as any)(listByType.value)
+      if (Array.isArray(filterResult)) {
+        result = filterResult as EventRecord[]
+      } else if (typeof filterResult === "function") {
+        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+      } else {
+        result = listByType.value.filter(bySelectedDate as unknown as (e: EventRecord) => boolean)
+      }
+    } else if (typeof (bySelectedDate as any)?.value === "function") {
+      const fn = (bySelectedDate as any).value
+      const filterResult = fn(listByType.value)
+      if (Array.isArray(filterResult)) {
+        result = filterResult as EventRecord[]
+      } else if (typeof filterResult === "function") {
+        result = listByType.value.filter(filterResult as (e: EventRecord) => boolean)
+      } else {
+        result = listByType.value.filter(fn as unknown as (e: EventRecord) => boolean)
+      }
+    } else {
+      // Fallback: match by date string
+      result = listByType.value.filter((e) => {
+        const maybeDate = (e as any).date
+        const dateObj = maybeDate
+          ? (typeof maybeDate.toDate === "function" ? maybeDate.toDate() : new Date(maybeDate))
+          : null
+        const d = dateObj ? dateObj.toDateString() : ""
+        const sel = selectedDate.value ? new Date(selectedDate.value) : null
+        const selStr = sel ? sel.toDateString() : ""
+        return d === selStr
+      })
+    }
+  } else {
+    result = listByType.value
+  }
+  
+  // LIMIT TO MAX_VISIBLE (3) EVENTS
+  return result.slice(0, MAX_VISIBLE)
+})
 
 watch(typeFilter, (val) => { if (val !== "all") selectedDate.value = null })
 
@@ -420,6 +323,38 @@ function readMore(id: string) { router.push(`/events/${id}`) }
 function goToMore() { router.push("/events/moreEvents") }
 </script>
 
-<style>
-  /* *{ outline: 1px solid red; } */
+<style scoped>
+/* *{ outline: 1px solid red; } */
+
+/* Calendar background */
+:deep(.custom-calendar .vc-container) {
+  background-color: #fafafa !important; /* neutral-50 */
+  border-radius: 0.75rem;
+}
+
+/* Hover on day cells - multiple selectors for broader coverage */
+:deep(.custom-calendar .vc-day:hover),
+:deep(.custom-calendar .vc-day:hover .vc-day-content),
+:deep(.custom-calendar .vc-day button:hover),
+:deep(.custom-calendar .vc-highlight:hover) {
+  background-color: #fee2e2 !important; /* red-100 */
+  cursor: pointer !important;
+}
+
+/* Selected date */
+:deep(.custom-calendar .vc-day.is-selected) {
+  background-color: #7f1d1d !important; /* red-900 */
+  color: white;
+}
+
+/* Today's date */
+:deep(.custom-calendar .vc-day.is-today) {
+  background-color: #fca5a5 !important; /* red-300 */
+}
+
+/* Weekday labels */
+:deep(.custom-calendar .vc-weekday) {
+  color: #7f1d1d !important; /* red-900 */
+  font-weight: 600;
+}
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-4xl p-6 mx-auto space-y-6">
+  <div class="max-w-4xl p-6 mx-auto space-y-6 border rounded">
     <UiButton
       class="flex flex-row px-2 py-1 text-sm font-semibold text-gray-800 transition bg-gray-200 rounded font-montserrat hover:scale-105 hover:bg-gray-300"
       @click="goBack"
@@ -11,8 +11,9 @@
     <img
       v-if="news?.imageUrl"
       :src="news.imageUrl"
-      class="w-full max-h-[400px] object-cover rounded"
+      class="w-full max-h-[400px] object-cover rounded cursor-pointer"
       alt="Cover image"
+      @click="openPhotoModal(news.imageUrl, news.title)"
     />
 
     <h1 class="text-3xl font-bold text-maroon">{{ news?.title }}</h1>
@@ -26,6 +27,12 @@
 
     <div class="tiptap-render max-w-none" v-html="news?.content || ''"></div>
   </div>
+  <PhotoModal
+    v-model="showPhotoModal"
+    :src="photoModalSrc"
+    :alt="photoModalAlt"
+    @close="showPhotoModal = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -50,6 +57,17 @@ const route = useRoute()
 const router = useRouter()
 const db = useFirestore()
 const id = route.params.id as string
+
+// Photo Modal state
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 
 // Load the document on the server (and client on nav) so head tags are SSR'd
 const { data: news } = await useAsyncData<NewsDoc | null>(

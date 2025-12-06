@@ -4,7 +4,7 @@
     <NavbarMain v-else/>
     <main class="md:pt-[135px] pt-24 flex-1"> <!-- Adjusted for the height of the navbar -->
       <slot />
-      <BackToTop />
+      <BackToTop /> 
     </main>
     <FooterMobile v-if="isMobile"/>
     <FooterMain v-else/>

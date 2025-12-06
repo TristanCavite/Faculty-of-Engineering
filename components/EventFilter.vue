@@ -1,29 +1,29 @@
 <template>
   <div class="flex items-center gap-3">
-    <label class="text-sm font-medium text-gray-700 hidden sm:inline">Filter by:</label>
+    <!-- <label class="hidden text-sm font-medium text-gray-700 sm:inline">Filter by:</label> -->
 
     <!-- relative container ensures the dropdown content can be absolutely positioned -->
-    <div class="relative inline-block">
+    <div class="relative inline-block hover:scale-105">
       <DropdownMenu>
         <DropdownMenuTrigger
-          class="flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-100"
+          class="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded-md shadow-sm hover:bg-gray-100"
           aria-label="Filter events"
           type="button"
         >
-          <component :is="selectedIcon" class="h-4 w-4 text-maroon" />
+          <component :is="selectedIcon" class="w-4 h-4 text-maroon" />
           <span class="whitespace-nowrap">{{ selectedLabel }}</span>
         </DropdownMenuTrigger>
 
         <!-- make sure content is absolutely positioned so it doesn't affect layout -->
-        <DropdownMenuContent class="absolute left-0 mt-2 z-50 w-44">
+        <DropdownMenuContent class="absolute left-0 z-10 mt-2 w-44">
           <DropdownMenuItem
             v-for="opt in TYPE_OPTIONS"
             :key="opt.value"
             @click="select(opt.value)"
-            class="flex items-center gap-2"
+            class="flex items-center gap-2 "
           >
-            <component :is="opt.icon" class="mr-2 h-4 w-4 text-gray-600" />
-            <span>{{ opt.label }}</span>
+            <component :is="opt.icon" class="w-4 h-4 mr-2 text-gray-600" />
+            <span class="font-medium font-montserrat">{{ opt.label }}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -46,7 +46,7 @@ const emit = defineEmits<{
 }>();
 
 const TYPE_OPTIONS = [
-  { value: "all", label: "All events", icon: ListFilter },
+  { value: "all", label: "All Events", icon: ListFilter },
   { value: "university", label: "University", icon: GraduationCap },
   { value: "faculty", label: "Faculty", icon: School },
   { value: "students", label: "Students", icon: Users },

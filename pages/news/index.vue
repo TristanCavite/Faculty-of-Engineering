@@ -34,8 +34,9 @@
         <img
           v-if="news.imageUrl"
           :src="news.imageUrl"
-          class="w-full max-h-[400px] object-cover rounded"
+          class="w-full max-h-[400px] object-cover rounded cursor-pointer"
           alt="News Cover Image"
+          @click="openPhotoModal(news.imageUrl, news.title)"
         />
 
         <!-- Description -->
@@ -52,6 +53,12 @@
           <ShareButton :item="{ id: news.id, type: 'news', title: news.title, excerpt: news.description }"/>
         </div>
       </div>
+      <PhotoModal
+        v-model="showPhotoModal"
+        :src="photoModalSrc"
+        :alt="photoModalAlt"
+        @close="showPhotoModal = false"
+      />
     </div>
     <!-- No news fallback -->
     <p v-else class="mt-10 text-center text-gray-500">No news found.</p>
@@ -72,6 +79,16 @@ const db = useFirestore()
 const newsRef = collection(db, 'news')
 const router = useRouter()
 
+// Photo Modal state
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 // Only show published, sorted by date descending
 const newsQuery = query(
   newsRef,
