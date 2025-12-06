@@ -2,7 +2,7 @@
   <div class="flex flex-col w-full space-y-6">
     <!-- MAIN LIST -->
     <template v-if="filteredItems.length > 0">
-      <div
+      <article
         v-for="item in filteredItems"
         :key="item.id"
         class="w-full pt-5 pb-5 border rounded-lg bg-neutral-50"
@@ -100,7 +100,7 @@
             }"
           />
         </div>
-      </div>
+      </article>
     </template>
 
     <!-- EMPTY STATE -->
@@ -160,11 +160,17 @@ import { useRouter } from "vue-router"
 import { collection, getDocs } from "firebase/firestore"
 import { useFirestore } from "vuefire"
 import Autoplay from "embla-carousel-autoplay"
-
 import { useEventsCalendar, type EventRecord } from "@/composables/useEventsCalendar"
+
+// Generic record: we piggyback on EventRecord shape + extras
+type ContentRecord = EventRecord & {
+  [key: string]: any
+}
 
 // ---------- PROPS (make it dynamic) ----------
 const props = defineProps<{
+  /** Array of events passed from parent */
+  events?: ContentRecord[]
   /** Firestore collection name, e.g. "events", "news", "research" */
   collectionName: string
   /** Logical item type for ShareButton, e.g. "event", "news", "research" */
@@ -185,20 +191,32 @@ const props = defineProps<{
 const db = useFirestore()
 const router = useRouter()
 
-// Generic record: we piggyback on EventRecord shape + extras
-type ContentRecord = EventRecord & {
-  [key: string]: any
-}
-
 const items = ref<ContentRecord[]>([])
 
+// Watch for events prop changes and use it if provided
+watch(
+  () => props.events,
+  (newEvents) => {
+    if (newEvents) {
+      items.value = newEvents.map(item => ({
+        currentSlide: 0,
+        ...item
+      })) as ContentRecord[]
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(async () => {
-  const snap = await getDocs(collection(db, props.collectionName))
-  items.value = snap.docs.map((doc) => ({
-    id: doc.id,
-    currentSlide: 0,
-    ...doc.data(),
-  })) as unknown as ContentRecord[]
+  // Only fetch if events not provided via prop
+  if (!props.events) {
+    const snap = await getDocs(collection(db, props.collectionName))
+    items.value = snap.docs.map((doc) => ({
+      id: doc.id,
+      currentSlide: 0,
+      ...doc.data(),
+    })) as unknown as ContentRecord[]
+  }
 })
 
 // ---------- Carousel API tracking ----------
@@ -248,13 +266,18 @@ const primaryDateField = computed(() => props.primaryDateField || "date")
 const typeField = computed(() => props.typeField || "eventType")
 const search = computed(() => (props.searchText || "").trim().toLowerCase())
 
-// sort by primary date descending
+const isPublishedStatus = (value: any) =>
+  String(value || "").toLowerCase().trim() === "published"
+
 const sortedByDateDesc = computed(() =>
-  items.value.slice().sort((a, b) => {
-    const aDate = (a as any)[primaryDateField.value]
-    const bDate = (b as any)[primaryDateField.value]
-    return msFrom(bDate) - msFrom(aDate)
-  }),
+  items.value
+    .filter((item: any) => isPublishedStatus(item.status))
+    .slice()
+    .sort((a, b) => {
+      const aDate = (a as any)[primaryDateField.value]
+      const bDate = (b as any)[primaryDateField.value]
+      return msFrom(bDate) - msFrom(aDate)
+    }),
 )
 
 // filter by type (if there is a type field)
@@ -401,7 +424,7 @@ const effectiveItemType = computed(
 
 function readMore(id: string) {
   // route: /events/:id, /news/:id, /research/:id, etc.
-  router.push(`/${props.collectionName}/${id}`)
+  router.push(`/${effectiveItemType.value}/${id}`)
 }
 
 // ---------- Labels (keep design, make text dynamic) ----------

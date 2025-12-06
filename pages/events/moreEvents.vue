@@ -4,14 +4,19 @@
       <div class="flex flex-col items-start mb-6">
         <div >
           <div class="flex flex-row items-center ml-6 space-x-3">
-            <NuxtLink to="/">
+            <NuxtLink :to="{
+                path: '/',
+                query: {
+                  type: typeFilter !== 'all' ? typeFilter : undefined,
+                },
+              }">
               <ArrowLeft class="text-red-900 cursor-pointer size-8 hover:scale-125" />
             </NuxtLink>
             <span class="text-3xl font-bold text-maroon">All Events</span>
           </div>
           <p class="mt-1 ml-6 text-sm text-gray-600">
             Browse all events —
-            <span v-if="!isLoading">{{ events.length }}</span>
+            <span v-if="!isLoading">{{ filteredTotal }}</span>
             <span v-else class="text-gray-400">loading…</span>
             total
           </p>
@@ -122,25 +127,109 @@ definePageMeta({ layout: "custom" });
 import { ref, computed, onMounted, watch } from "vue";
 import { useFirestore } from "vuefire";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { Frown, ArrowLeft } from "lucide-vue-next";
 import { NuxtLink } from "#components";
+import type { Timestamp } from 'firebase/firestore'
 
+type EventDate = Timestamp | Date | string | number | null | undefined
+
+export interface EventRecord {
+  id: string
+  title: string
+  createdAt?: EventDate
+  date?: EventDate
+  status?: string
+  [key: string]: unknown
+}
+
+const props = withDefaults(
+  defineProps<{
+    items: EventRecord[]
+    maxVisible?: number
+    maxOldItems?: number
+    headerLabel?: string
+    seeAllLabel?: string
+    seeAllRoute?: string
+    itemRouteBase?: string
+    /** 🔹 NEW: current type filter from parent (e.g. "faculty") */
+    currentType?: string
+  }>(),
+  {
+    maxVisible: 3,
+    maxOldItems: 10,
+    seeAllLabel: '',
+    seeAllRoute: '/',
+    itemRouteBase: '',
+    currentType: 'all',
+  },
+)
 const PAGE_SIZE = 5;
 const currentPage = ref(1);
 
 const events = ref<any[]>([]);
 const db = useFirestore();
 const router = useRouter();
+const route = useRoute();
 
+function msFrom(value: EventDate): number {
+  if (!value && value !== 0) return 0
+  if (typeof value === 'number') return value
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') return new Date(value).getTime()
+  if (
+    typeof value === 'object' &&
+    value &&
+    'toDate' in value &&
+    typeof (value as any).toDate === 'function'
+  ) {
+    return (value as Timestamp).toDate().getTime()
+  }
+  return 0
+}
+
+const isLoading = ref(true);
+const filteredTotal = computed(() => listByFilters.value.length)
+
+// ---------- Filters ----------
+
+// initialize from query (?type=faculty), fallback to "all"
+// ---------- Filters ----------
 const typeFilter = ref<string>("all");
 const yearFilter = ref<string>("all");
-const isLoading = ref(true);
+
+
+
+// initialise from ?type= on first load
+typeFilter.value = (route.query.type as string) || "all"
+
+// when route changes (first load or navigation), update typeFilter
+watch(
+  () => route.query.type,
+  (val) => {
+    typeFilter.value = (val as string) || "all"
+  },
+  { immediate: true }, // run on initial mount
+)
+
+// when user changes EventFilter here, update ?type= in URL
+watch(typeFilter, (val) => {
+  const current = (route.query.type as string) || "all"
+  if (val === current) return
+
+  router.replace({
+    query: {
+      ...route.query,
+      type: val !== "all" ? val : undefined,
+    },
+  })
+})
 
 function goBack() {
-  router.push('/')
+  router.push("/");
 }
-// Load events once on mount
+
+// ---------- Load events once on mount ----------
 onMounted(async () => {
   isLoading.value = true;
   try {
@@ -155,7 +244,51 @@ onMounted(async () => {
   }
 });
 
-// Helpers
+const sortedByDateDesc = computed(() =>
+  [...props.items]
+    // you can also keep your status === "published" filter here if desired
+    .sort(
+      (a, b) =>
+        msFrom(b.createdAt ?? b.date) - msFrom(a.createdAt ?? a.date),
+    ),
+)
+
+const oldEvents = computed(() =>
+  sortedByDateDesc.value.slice(0, props.maxOldItems),
+)
+
+function miniDate(value: EventDate): string {
+  const time = msFrom(value)
+  if (!time) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(new Date(time))
+}
+
+function readMore(id: string) {
+  router.push(`${props.itemRouteBase}/${id}`)
+}
+
+/** 🔹 UPDATED: include ?type=<currentType> when navigating */
+function goToMore() {
+  const type = props.currentType ?? 'all'
+
+  if (!props.seeAllRoute) return
+
+  if (type === 'all') {
+    router.push(props.seeAllRoute)
+  } else {
+    router.push({
+      path: props.seeAllRoute,
+      query: {
+        type,
+      },
+    })
+  }
+}
+// ---------- Helpers ----------
 function asDate(val: any): Date | null {
   if (!val) return null;
   if (val instanceof Date) return val;
@@ -163,26 +296,45 @@ function asDate(val: any): Date | null {
   if (typeof val === "string" || typeof val === "number") return new Date(val);
   return null;
 }
+
 function normalizeType(v: any) {
-  return String(v || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return String(v || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
-// Compute years available from the loaded events (descending)
+function normalizeStatus(v: any) {
+  return String(v || "").toLowerCase().trim();
+}
+
+// Years available from *published* events (descending)
 const yearOptions = computed(() => {
   const set = new Set<number>();
   for (const e of events.value) {
+    if (normalizeStatus(e.status) !== "published") continue;
     const d = asDate(e.date);
     if (d) set.add(d.getFullYear());
   }
   return Array.from(set).sort((a, b) => b - a);
 });
 
-// Apply both filters (type + year)
+// ---------- Apply status + type + year filters ----------
 const listByFilters = computed(() => {
-  let list = events.value.slice();
+  // 1) only published events
+  let list = events.value.filter(
+    (e) => normalizeStatus(e.status) === "published",
+  );
+
+  // 2) type filter (EventFilter)
   if (typeFilter.value !== "all") {
-    list = list.filter((e) => normalizeType(e.eventType) === typeFilter.value);
+    list = list.filter(
+      (e) => normalizeType(e.eventType) === typeFilter.value,
+    );
   }
+
+  // 3) year filter (YearFilter)
   if (yearFilter.value !== "all") {
     const y = Number(yearFilter.value);
     list = list.filter((e) => {
@@ -190,10 +342,15 @@ const listByFilters = computed(() => {
       return d ? d.getFullYear() === y : false;
     });
   }
+
   return list;
 });
 
-const totalPages = computed(() => Math.max(1, Math.ceil(listByFilters.value.length / PAGE_SIZE)));
+// ---------- Pagination ----------
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(listByFilters.value.length / PAGE_SIZE)),
+);
+
 const paginatedEvents = computed(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE;
   return listByFilters.value.slice(start, start + PAGE_SIZE);
@@ -205,28 +362,40 @@ function goToPage(page: number) {
   currentPage.value = page;
   if (process.client) window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
 function openEvent(id: string) {
   router.push(`/events/${id}`);
 }
+
 function clearFilters() {
   typeFilter.value = "all";
   yearFilter.value = "all";
   currentPage.value = 1;
 }
 
+// ---------- Formatting / labels ----------
 function formatEventDate(start: any, end?: any): string {
   const s = asDate(start);
   if (!s) return "";
-  const opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" };
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  };
   const sStr = s.toLocaleDateString("en-US", opts);
   if (!end) return sStr;
   const e = asDate(end);
   return e ? `${sStr} - ${e.toLocaleDateString("en-US", opts)}` : sStr;
 }
+
 function formatPublishDate(val: any): string {
   const d = asDate(val);
   if (!d) return "";
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 function labelForType(t: any): string {
@@ -239,24 +408,32 @@ function labelForType(t: any): string {
   if (norm.includes("general")) return "General";
   return capitalize(String(t));
 }
+
 function displayFilterLabel(val: string) {
   if (!val || val === "all") return "All events";
   return labelForType(val);
 }
+
 function capitalize(s: string) {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
 function truncateHtml(html: string, max = 200) {
   const text = String(html || "").replace(/<[^>]+>/g, "");
   return text.length > max ? text.slice(0, max).trim() + "…" : text;
 }
 
+// Reset page when filters change
 watch([typeFilter, yearFilter], () => {
   currentPage.value = 1;
 });
+
+// Keep currentPage in range when events change
 watch(events, () => {
-  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value;
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value;
+  }
 });
 
 // small helper to show a compact page range (up to 7 numbers)
@@ -273,9 +450,9 @@ const pageRange = computed(() => {
   for (let i = start; i <= end; i++) out.push(i);
   return out;
 });
-
-
 </script>
+
+
 
 
 <style scoped>
