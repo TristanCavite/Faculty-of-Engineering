@@ -15,9 +15,13 @@
     </div>
 
     <!-- Main Content Container -->
-    <div class="mx-auto mt-10 h-auto w-full md:w-3/4">
-      <!-- Video Section -->
-      <div class="h-auto w-full rounded-xl p-2 md:mx-auto md:h-128 md:w-3/4">
+    <!-- space-y-* only applies if both video + content exist -->
+    <div class="mx-auto mt-10 h-auto w-full md:w-3/4 space-y-6 md:space-y-8">
+      <!-- ✅ Video Section is rendered ONLY if there is a videoUrl -->
+      <div
+        v-if="hasVideo"
+        class="h-auto w-full rounded-xl p-2 md:mx-auto md:h-128 md:w-3/4"
+      >
         <!-- YouTube Embed -->
         <iframe
           v-if="aboutData?.videoUrl && aboutData.videoUrl.includes('youtube.com')"
@@ -29,8 +33,8 @@
 
         <!-- Fallback for direct video URLs (e.g., .mp4 from Firebase Storage) -->
         <video
-          v-else-if="aboutData?.videoUrl"
-          :src="aboutData.videoUrl"
+          v-else
+          :src="aboutData?.videoUrl"
           controls
           preload="auto"
           playsinline
@@ -38,38 +42,51 @@
         ></video>
       </div>
 
-      <!-- Rich Text Content -->
-      <div class="mx-auto mb-12 mt-10 w-3/4 md:mt-16">
-        <div class="cet-content prose max-w-none" v-html="aboutData?.content"></div>
+      <!-- Rich Text Content with grey bar -->
+      <!-- w-11/12 on mobile so it doesn't touch the sides -->
+      <div class="mx-auto mb-12 w-11/12 md:w-3/4 md:mb-16">
+        <div
+          class="bg-neutral-100 border border-neutral-200 rounded-lg px-6 py-8 md:px-10 md:py-10"
+        >
+          <div
+            class="cet-content prose max-w-none"
+            v-html="aboutData?.content"
+          ></div>
+        </div>
       </div>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-  import { doc } from "firebase/firestore";
-  import { useDocument, useFirestore } from "vuefire";
+import { computed } from 'vue'
+import { doc } from 'firebase/firestore'
+import { useDocument, useFirestore } from 'vuefire'
 
-  // Get Firestore instance
-  const db = useFirestore();
+const db = useFirestore()
 
-  // Retrieve document from Firestore: about_sections > the_college
-  const { data: aboutData } = useDocument(doc(db, "about_sections", "the_college"));
+// about_sections > the_college
+const { data: aboutData } = useDocument(
+  doc(db, 'about_sections', 'the_college'),
+)
 
-  // Function to convert normal YouTube links to embed format
-  function getYoutubeEmbedUrl(url: string): string {
-    try {
-      const videoId = new URL(url).searchParams.get("v");
-      return `https://www.youtube.com/embed/${videoId}`;
-    } catch (e) {
-      console.error("Invalid YouTube URL:", url);
-      return "";
-    }
+// ✅ true only when there is a video URL
+const hasVideo = computed(() => !!aboutData.value?.videoUrl)
+
+// Convert normal YouTube links to embed format
+function getYoutubeEmbedUrl(url: string): string {
+  try {
+    const videoId = new URL(url).searchParams.get('v')
+    return `https://www.youtube.com/embed/${videoId}`
+  } catch (e) {
+    console.error('Invalid YouTube URL:', url)
+    return ''
   }
+}
 </script>
 
 <script lang="ts">
-  definePageMeta({
-    layout: "custom",
-  });
+definePageMeta({
+  layout: 'custom',
+})
 </script>

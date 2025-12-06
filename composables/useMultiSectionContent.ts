@@ -340,18 +340,12 @@ export function useMultiSectionContent(kind: Kind) {
         form.value.coverImageUrl = await getDownloadURL(fileRef)
       }
 
+      // 👇 Always include videoUrl now
       const payload: Record<string, any> = {
         coverImageUrl: form.value.coverImageUrl || '',
         content: form.value.content || '',
+        videoUrl: form.value.videoUrl || '',
         updatedAt: serverTimestamp(),
-      }
-
-      // video
-      if (
-        kind === 'about' ||
-        (kind === 'admission' && selectedSection.value === 'why_choose_vsu')
-      ) {
-        payload.videoUrl = form.value.videoUrl || ''
       }
 
       if (isExtraSection.value) {
