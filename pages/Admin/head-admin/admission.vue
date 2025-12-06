@@ -95,7 +95,7 @@
         :isEditing="isEditing"
         :isDirty="isDirty"
         :saving="saving"
-        :showVideoField="selectedSection === 'why_choose_vsu'"
+        :showVideoField="true"
         :imageUploadHandler="handleEditorImageUpload"
         :notice="notice"
         @clear-notice="notice = null"

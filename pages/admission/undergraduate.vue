@@ -15,10 +15,45 @@
       </div>
     </div>
 
-    <!-- Main Content Container -->
-     <div class="mx-auto mb-12 mt-10 w-3/4 md:mt-16">
-        <div class="cet-content prose max-w-none" v-html="admissionData?.content"></div>
+    <!-- Main Content Container (same layout as faculty / why_choose_vsu) -->
+    <div class="mx-auto mt-10 h-auto w-full md:w-3/4 space-y-6 md:space-y-8">
+      <!-- ✅ Optional video section -->
+      <div
+        v-if="hasVideo"
+        class="h-auto w-full rounded-xl p-2 md:mx-auto md:h-128 md:w-3/4"
+      >
+        <!-- YouTube Embed -->
+        <iframe
+          v-if="admissionData?.videoUrl && admissionData.videoUrl.includes('youtube.com')"
+          :src="getYoutubeEmbedUrl(admissionData.videoUrl)"
+          frameborder="0"
+          allowfullscreen
+          class="object-fit h-56 w-full rounded-md md:h-full"
+        ></iframe>
+
+        <!-- Fallback for direct video URLs (e.g., .mp4 from Firebase) -->
+        <video
+          v-else
+          :src="admissionData?.videoUrl"
+          controls
+          preload="auto"
+          playsinline
+          class="h-56 w-full rounded-md object-cover md:h-full"
+        ></video>
       </div>
+
+      <!-- Grey content card -->
+      <div class="mx-auto mb-12 w-11/12 md:w-3/4 md:mb-16">
+        <div
+          class="bg-neutral-100 border border-neutral-200 rounded-lg px-6 py-8 md:px-10 md:py-10"
+        >
+          <div
+            class="cet-content prose max-w-none"
+            v-html="admissionData?.content"
+          ></div>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -31,7 +66,7 @@
  */
 import { computed, shallowRef, watchEffect } from 'vue'
 import { createError } from 'h3'
-import { useFirestore, useDocument } from 'vuefire'
+import { useFirestore } from 'vuefire'
 import { doc, getDoc } from 'firebase/firestore'
 
 definePageMeta({ layout: 'custom' })
@@ -40,7 +75,9 @@ const db = useFirestore()
 
 /* 1) Read the public flag (reactive, tiny doc everyone can read) */
 const flagsRef = doc(db, 'settings', 'public_flags')
-const { data: flags } = useDocument<{ admissionUndergradVisible?: boolean }>(flagsRef)
+const { data: flags } = useDocument<{ admissionUndergradVisible?: boolean }>(
+  flagsRef
+)
 
 /* Default to true until the flag arrives (prevents flicker) */
 const visible = computed(() => flags.value?.admissionUndergradVisible ?? true)
@@ -64,4 +101,18 @@ watchEffect(async () => {
     admissionData.value = null
   }
 })
+
+/* ✅ Same helpers as faculty / why_choose_vsu */
+
+const hasVideo = computed(() => !!admissionData.value?.videoUrl)
+
+function getYoutubeEmbedUrl(url: string): string {
+  try {
+    const videoId = new URL(url).searchParams.get('v')
+    return `https://www.youtube.com/embed/${videoId}`
+  } catch (e) {
+    console.error('Invalid YouTube URL:', url)
+    return ''
+  }
+}
 </script>

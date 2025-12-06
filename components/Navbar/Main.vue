@@ -2,8 +2,10 @@
   <header class="fixed z-20 w-full" :style="hideNav ? 'height: 120px;' : 'height: 30px;'">
     <!-- Header Bar with Search and Social Icons -->
     <transition name="header-sticky">
-      <div class="bg-white border-gray-200 header-bar-transition">
-        <div class="flex items-center justify-between w-full max-w-screen-xl px-4 mx-auto">
+      <div class="header-bar-transition border-gray-200 bg-white">
+        <div
+          class="relative mx-auto flex min-h-[88px] w-full max-w-screen-xl items-center justify-between px-4 py-3"
+        >
           <!-- Left: Social Icons -->
           <div class="flex items-center space-x-6">
             <a
@@ -18,184 +20,273 @@
             >
               <component
                 :is="SOCIAL_ICONS[it.key] || Globe"
-                class="text-red-900 size-5 fill-neutral-100 md:size-6"
+                class="size-5 fill-neutral-100 text-red-900 md:size-6"
               />
             </a>
           </div>
 
-          <!-- Logo (Center) -->
-          <NuxtLink to="/" class="">
+          <!-- Logo: ABSOLUTE CENTER (does not move when left/right change) -->
+          <NuxtLink
+            to="/"
+            class="absolute inset-y-0 left-1/2 flex -translate-x-1/2 items-center justify-center"
+          >
             <HeaderMain />
           </NuxtLink>
 
           <!-- Right: Search Bar -->
-          <div class="relative my-1 w-38">
+          <div class="w-38 relative my-1">
             <UiInput
               id="search"
               type="text"
               v-model="searchQuery"
               @keydown.enter="submitSearch"
               placeholder="Search"
-              class="w-full h-10 pl-10 text-sm border-2 border-red-900 rounded-full bg-neutral-100 font-montserrat placeholder:text-black focus:outline-black focus:ring-0"
+              class="h-10 w-full rounded-full border-2 border-red-900 bg-neutral-100 pl-10 font-montserrat text-sm placeholder:text-black focus:outline-black focus:ring-0"
             />
-
-            <span class="absolute inset-y-0 flex items-center text-white left-3">
-              <Search class="text-red-900 fill-white" />
+            <span class="absolute inset-y-0 left-3 flex items-center text-white">
+              <Search class="fill-white text-red-900" />
             </span>
           </div>
         </div>
       </div>
     </transition>
 
+    <!-- NAVBAR -->
     <transition name="nav-fade-up">
-      <nav  v-if="!hideNav" class="flex flex-col items-center w-full bg-red-900 scale " :class="['flex w-full flex-col items-center', { 'nav-fixed': !hideNav }]">
+      <nav
+        v-if="!hideNav"
+        class="flex w-full flex-col items-center bg-red-900 shadow-md"
+        :class="['flex w-full flex-col items-center', { 'nav-fixed': !hideNav }]"
+      >
         <UiTabs :value="visualTab" @update:value="handleTabChange">
-          <UiTabsList  class="relative h-10 gap-2 text-white bg-transparent font-montserrat">
-            <UiTabsTrigger value="home" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'home' ? 'bg-red-950 text-white' : '']">
-              <NuxtLink to="/" class="flex items-center text-lg font-bold">
-                <House/>
-                Home
+          <UiTabsList
+            class="relative flex h-14 items-stretch gap-1 bg-transparent px-2 font-montserrat text-white md:gap-2 md:px-4"
+          >
+            <!-- HOME -->
+            <UiTabsTrigger
+              value="home"
+              :class="[tabBaseClass, visualTab === 'home' ? activeTabClass : inactiveTabClass]"
+            >
+              <NuxtLink to="/" class="flex items-center gap-1 !text-inherit">
+                <House />
+                <span class="text-base md:text-lg">Home</span>
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="about" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'about' ? 'bg-red-950 text-white' : '']">
+
+            <!-- ABOUT -->
+            <UiTabsTrigger
+              value="about"
+              :class="[tabBaseClass, visualTab === 'about' ? activeTabClass : inactiveTabClass]"
+            >
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
+                <UiDropdownMenuTrigger class="flex items-center gap-1 !text-inherit">
                   <BadgeInfo />
-                  About
-                  <ChevronDown/>
+                  <span class="text-base md:text-lg">About</span>
+                  <ChevronDown />
                 </UiDropdownMenuTrigger>
-                <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)">
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/about/faculty" class="flex items-center text-lg font-medium hover:scale-105 ">
+
+                <UiDropdownMenuContent
+                  :class="[dropdownContentClass, 'min-w-(--reka-dropdown-menu-trigger-width)']"
+                >
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/about/faculty" class="block w-full !text-inherit">
                       Faculty of Engineering
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/about/facilities" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/about/facilities" class="block w-full !text-inherit">
                       Facilities
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/about/history" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/about/history" class="block w-full !text-inherit">
                       History
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuSub >
-                    <UiDropdownMenuSubTrigger class="text-lg font-medium hover:scale-105">
-                      Offices and Administration
+
+                  <UiDropdownMenuSub>
+                    <!-- Now clickable and still acts as a sub-trigger -->
+                    <UiDropdownMenuSubTrigger :class="dropdownItemClass">
+                      <NuxtLink
+                        to="/about/administration"
+                        class="flex w-full items-center justify-between !text-inherit"
+                      >
+                        <span>Offices and Administration</span>
+                      </NuxtLink>
                     </UiDropdownMenuSubTrigger>
-                    <UiDropdownMenuSubContent >
-                      <UiDropdownMenuItem v-for="dept in departments" :key="dept.id" >
-                        <NuxtLink :to="`/about/dept_personels/${dept.id}`" class="flex items-center text-lg font-medium hover:scale-105">
-                           {{ dept.name }}
+
+                    <UiDropdownMenuSubContent :class="dropdownContentClass">
+                      <UiDropdownMenuItem
+                        v-for="dept in departments"
+                        :key="dept.id"
+                        :class="dropdownItemClass"
+                      >
+                        <NuxtLink
+                          :to="`/about/dept_personels/${dept.id}`"
+                          class="block w-full !text-inherit"
+                        >
+                          {{ dept.name }}
                         </NuxtLink>
                       </UiDropdownMenuItem>
                     </UiDropdownMenuSubContent>
                   </UiDropdownMenuSub>
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/about/map" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/about/map" class="block w-full !text-inherit">
                       Map and Location
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem v-if="extra1Visible">
-                    <NuxtLink :to="`/about/extra1`" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem v-if="extra1Visible" :class="dropdownItemClass">
+                    <NuxtLink :to="`/about/extra1`" class="block w-full !text-inherit">
                       {{ extra1Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem v-if="extra2Visible">
-                    <NuxtLink :to="`/about/extra2`" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem v-if="extra2Visible" :class="dropdownItemClass">
+                    <NuxtLink :to="`/about/extra2`" class="block w-full !text-inherit">
                       {{ extra2Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="academics" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'academics' ? 'bg-red-950 text-white' : '']">
+
+            <!-- ACADEMICS -->
+            <UiTabsTrigger
+              value="academics"
+              :class="[tabBaseClass, visualTab === 'academics' ? activeTabClass : inactiveTabClass]"
+            >
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
-                  <Users/>
-                  Academics
-                  <ChevronDown/>
+                <UiDropdownMenuTrigger class="flex items-center gap-1 !text-inherit">
+                  <Users />
+                  <span class="text-base md:text-lg">Academics</span>
+                  <ChevronDown />
                 </UiDropdownMenuTrigger>
-                <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)">
+
+                <UiDropdownMenuContent
+                  :class="[dropdownContentClass, 'min-w-(--reka-dropdown-menu-trigger-width)']"
+                >
                   <UiDropdownMenuSub>
-                    <UiDropdownMenuSubTrigger class="text-lg font-medium hover:scale-105 ">
+                    <UiDropdownMenuSubTrigger :class="dropdownItemClass">
                       Degree Program
                     </UiDropdownMenuSubTrigger>
-                    <UiDropdownMenuSubContent>
-                      <UiDropdownMenuItem v-for="dept in departments" :key="dept.id" >
-                        <NuxtLink :to="`/academics/departments/${dept.id}`" class="flex items-center text-lg font-medium hover:scale-105">
-                           {{ dept.name }}
+                    <UiDropdownMenuSubContent :class="dropdownContentClass">
+                      <UiDropdownMenuItem
+                        v-for="dept in departments"
+                        :key="dept.id"
+                        :class="dropdownItemClass"
+                      >
+                        <NuxtLink
+                          :to="`/academics/departments/${dept.id}`"
+                          class="block w-full !text-inherit"
+                        >
+                          {{ dept.name }}
                         </NuxtLink>
                       </UiDropdownMenuItem>
                     </UiDropdownMenuSubContent>
                   </UiDropdownMenuSub>
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/academics/academic_calendar" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/academics/academic_calendar" class="block w-full !text-inherit">
                       Academic Calendar
-                    </NuxtLink> 
+                    </NuxtLink>
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="admission" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'admission' ? 'bg-red-950 text-white' : '']">
+
+            <!-- ADMISSION -->
+            <UiTabsTrigger
+              value="admission"
+              :class="[tabBaseClass, visualTab === 'admission' ? activeTabClass : inactiveTabClass]"
+            >
               <UiDropdownMenu>
-                <UiDropdownMenuTrigger class="flex items-center space-x-1 text-lg font-bold">
-                  <Building/>
-                  Admission
-                  <ChevronDown/>
+                <UiDropdownMenuTrigger class="flex items-center gap-1 !text-inherit">
+                  <Building />
+                  <span class="text-base md:text-lg">Admission</span>
+                  <ChevronDown />
                 </UiDropdownMenuTrigger>
-                <UiDropdownMenuContent class="min-w-(--reka-dropdown-menu-trigger-width)" >            
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/admission/why_choose_cet" class="flex items-center text-lg font-medium hover:scale-105">
+
+                <UiDropdownMenuContent
+                  :class="[dropdownContentClass, 'min-w-(--reka-dropdown-menu-trigger-width)']"
+                >
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/admission/why_choose_cet" class="block w-full !text-inherit">
                       Why choose VSU?
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem v-if="undergradVisible">
-                    <NuxtLink to="/admission/undergraduate" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem v-if="undergradVisible" :class="dropdownItemClass">
+                    <NuxtLink to="/admission/undergraduate" class="block w-full !text-inherit">
                       Undergraduate
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem>
-                    <NuxtLink to="/admission/graduate" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem :class="dropdownItemClass">
+                    <NuxtLink to="/admission/graduate" class="block w-full !text-inherit">
                       Graduate
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem v-if="admExtra1ShouldShow">
-                    <NuxtLink :to="`/admission/extra1`" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem v-if="admExtra1ShouldShow" :class="dropdownItemClass">
+                    <NuxtLink :to="`/admission/extra1`" class="block w-full !text-inherit">
                       {{ admExtra1Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
-                  <UiDropdownMenuItem v-if="admExtra2ShouldShow">
-                    <NuxtLink :to="`/admission/extra2`" class="flex items-center text-lg font-medium hover:scale-105">
+
+                  <UiDropdownMenuItem v-if="admExtra2ShouldShow" :class="dropdownItemClass">
+                    <NuxtLink :to="`/admission/extra2`" class="block w-full !text-inherit">
                       {{ admExtra2Label }}
                     </NuxtLink>
                   </UiDropdownMenuItem>
                 </UiDropdownMenuContent>
               </UiDropdownMenu>
             </UiTabsTrigger>
-            <UiTabsTrigger value="research" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'research' ? 'bg-red-950 text-white' : '']">
-              <NuxtLink to="/research/" class="flex items-center text-lg font-bold">
-                <FlaskConical/>
-                Research
+
+            <!-- RESEARCH -->
+            <UiTabsTrigger
+              value="research"
+              :class="[tabBaseClass, visualTab === 'research' ? activeTabClass : inactiveTabClass]"
+            >
+              <NuxtLink to="/research/" class="flex items-center gap-1 !text-inherit">
+                <FlaskConical />
+                <span class="text-base md:text-lg">Research</span>
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="news" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'news' ? 'bg-red-950 text-white' : '']">
-              <NuxtLink to="/news/" class="flex items-center text-lg font-bold">
-                <Newspaper/>
-                News
+
+            <!-- NEWS -->
+            <UiTabsTrigger
+              value="news"
+              :class="[tabBaseClass, visualTab === 'news' ? activeTabClass : inactiveTabClass]"
+            >
+              <NuxtLink to="/news/" class="flex items-center gap-1 !text-inherit">
+                <Newspaper />
+                <span class="text-base md:text-lg">News</span>
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="download" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'download' ? 'bg-red-950 text-white' : '']">
-              <NuxtLink to="/download/" class="flex items-center text-lg font-bold">
-                <FileDown/>
-                Download
+
+            <!-- DOWNLOAD -->
+            <UiTabsTrigger
+              value="download"
+              :class="[tabBaseClass, visualTab === 'download' ? activeTabClass : inactiveTabClass]"
+            >
+              <NuxtLink to="/download/" class="flex items-center gap-1 !text-inherit">
+                <FileDown />
+                <span class="text-base md:text-lg">Download</span>
               </NuxtLink>
             </UiTabsTrigger>
-            <UiTabsTrigger value="obe" :class="['relative hover:scale-110 hover:bg-red-950 hover:text-white data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-red-950', visualTab === 'obe' ? 'bg-red-950 text-white' : '']">
-              <NuxtLink to="/obe/" class="flex items-center text-lg font-bold">
+
+            <!-- OBE -->
+            <UiTabsTrigger
+              value="obe"
+              :class="[tabBaseClass, visualTab === 'obe' ? activeTabClass : inactiveTabClass]"
+            >
+              <NuxtLink to="/obe/" class="flex items-center gap-1 !text-inherit">
                 <Award />
-                OBE
+                <span class="text-base md:text-lg">OBE</span>
               </NuxtLink>
             </UiTabsTrigger>
           </UiTabsList>
@@ -206,94 +297,26 @@
 </template>
 
 <script setup lang="ts">
+  import { usePublicNavbar } from "@/composables/usePublicNavbar";
   import { useSocialLinks } from "@/composables/useSocialLinks";
-  import { signOut } from "firebase/auth";
-  import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-  import { Facebook, Globe, Instagram, Linkedin, Twitter, Youtube, ChevronDown, Search, House, BadgeInfo, Users, Building, Clock, MapPin, School, FlaskConical, Newspaper, FileDown, Award, FolderPlus} from "lucide-vue-next";
-  import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick, reactive} from "vue";
-  import { useRoute, useRouter } from "vue-router";
-  import { useDocument, useFirestore } from "vuefire";
-
-  const departments = ref<any[]>([]);
-  const router = useRouter();
-  const route = useRoute();
-  const searchQuery = ref("");
-  
-   // Auth
-  const user = useCurrentUser();
-  const auth = useFirebaseAuth();
-  const departmentRefs = ref<HTMLElement[]>([]);
-  const programDirections = ref<Record<number, "left" | "right">>({});
-
-  const activeTab = computed(() => {
-    const path = route.path;
-    
-    if (path === '/') return 'home';
-    if (path.startsWith('/about')) return 'about';
-    if (path.startsWith('/academics')) return 'academics';
-    if (path.startsWith('/admission')) return 'admission';
-    if (path.startsWith('/research')) return 'research';
-    if (path.startsWith('/news')) return 'news';
-    if (path.startsWith('/download')) return 'download';
-    if (path.startsWith('/obe')) return 'obe';
-    
-    return 'home'; // default fallback
-  });
-
-  const visualTab = ref(activeTab.value);
-
-  watch(
-    () => route.path,
-    async () => {
-      visualTab.value = activeTab.value;
-      await nextTick();
-    }
-  );
-  const handleTabChange = (value: string) => {
-    visualTab.value = value;
-    switch (value) {
-      case 'home':
-        router.push('/');
-        break;
-      case 'about':
-        break;
-      case 'academics':
-        break;
-      case 'admission':
-        break;
-      case 'research':
-        router.push('/research/');
-        break;
-      case 'news':
-        router.push('/news/');
-        break;
-      case 'download':
-        router.push('/download/');
-        break;
-      case 'obe':
-        router.push('/obe/');
-        break;
-      default:
-    }
-  };
-
-  // Firestore / vuefire
-  const _db_for_extra_labels = useFirestore();
-  const extra1Doc = useDocument(doc(_db_for_extra_labels, "about_sections", "extra_section_1"));
-  const extra2Doc = useDocument(doc(_db_for_extra_labels, "about_sections", "extra_section_2"));
-  const db = useFirestore();
-
-  // Global flags doc (used elsewhere, reuse here)
-  const flagsRef = doc(db, "settings", "public_flags");
-  // Read flags (reactive)
-  const { data: flags } = useDocument<Record<string, any>>(flagsRef);
-
-  // === Admission extras reactive docs (new) ===
-  const admExtra1Doc = useDocument(doc(db, "admission_sections", "extra_section_1"));
-  const admExtra2Doc = useDocument(doc(db, "admission_sections", "extra_section_2"));
-
-  // admission toggle (existing)
-  const undergradVisible = computed(() => flags.value?.admissionUndergradVisible ?? true);
+  import {
+    Award,
+    BadgeInfo,
+    Building,
+    ChevronDown,
+    Facebook,
+    FileDown,
+    FlaskConical,
+    Globe,
+    House,
+    Instagram,
+    Linkedin,
+    Newspaper,
+    Search,
+    Twitter,
+    Users,
+    Youtube,
+  } from "lucide-vue-next";
 
   const SOCIAL_ICONS: Record<string, any> = {
     facebook: Facebook,
@@ -304,143 +327,47 @@
     website: Globe,
   };
 
-  // Labels (admin-saved title or fallback) for ABOUT extras (existing)
-  const extra1Label = computed(() => {
-    const t = extra1Doc.value?.title;
-    return t && String(t).trim().length ? t : "Extra Section";
-  });
-  const extra2Label = computed(() => {
-    const t = extra2Doc.value?.title;
-    return t && String(t).trim().length ? t : "Extra Section";
-  });
-
-  // -----------------------
-  // Visibility computed values for ABOUT extras (existing)
-  // Preference: section doc.isVisible -> settings.public_flags.about_<id> -> default true
-  // -----------------------
-  const extra1Visible = computed(() => {
-    const secVal = extra1Doc.value?.isVisible;
-    const flagVal = flags.value?.["about_extra_section_1"];
-    return typeof secVal !== "undefined" ? secVal : typeof flagVal !== "undefined" ? flagVal : true;
-  });
-
-  const extra2Visible = computed(() => {
-    const secVal = extra2Doc.value?.isVisible;
-    const flagVal = flags.value?.["about_extra_section_2"];
-    return typeof secVal !== "undefined" ? secVal : typeof flagVal !== "undefined" ? flagVal : true;
-  });
-
-  // -----------------------
-  // Admission extras: labels & visibility (NEW)
-  // Preference: admission_sections/{id}.isVisible -> settings.public_flags.admission_extra_section_X -> default true
-  // Label: admission_sections/{id}.title (must be non-empty)
-  // -----------------------
-  const admExtra1Label = computed(() => {
-    const t = admExtra1Doc.value?.title;
-    return t && String(t).trim().length ? String(t) : "Extra Section";
-  });
-  const admExtra2Label = computed(() => {
-    const t = admExtra2Doc.value?.title;
-    return t && String(t).trim().length ? String(t) : "Extra Section";
-  });
-
-  const admExtra1Visible = computed(() => {
-    const secVal = admExtra1Doc.value?.isVisible;
-    const flagVal = flags.value?.["admission_extra_section_1"];
-    return typeof secVal !== "undefined" ? secVal : typeof flagVal !== "undefined" ? flagVal : true;
-  });
-  const admExtra2Visible = computed(() => {
-    const secVal = admExtra2Doc.value?.isVisible;
-    const flagVal = flags.value?.["admission_extra_section_2"];
-    return typeof secVal !== "undefined" ? secVal : typeof flagVal !== "undefined" ? flagVal : true;
-  });
-
-  // require non-empty title to show (you said you want title to be used if present)
-  const admExtra1HasTitle = computed(() => {
-    const t = admExtra1Doc.value?.title;
-    return !!(t && String(t).trim().length);
-  });
-  const admExtra2HasTitle = computed(() => {
-    const t = admExtra2Doc.value?.title;
-    return !!(t && String(t).trim().length);
-  });
-
-  // final guard used in template
-  const admExtra1ShouldShow = computed(() => admExtra1Visible.value && admExtra1HasTitle.value);
-  const admExtra2ShouldShow = computed(() => admExtra2Visible.value && admExtra2HasTitle.value);
+  const {
+    departments,
+    searchQuery,
+    submitSearch,
+    extra1Label,
+    extra2Label,
+    extra1Visible,
+    extra2Visible,
+    admExtra1Label,
+    admExtra2Label,
+    admExtra1ShouldShow,
+    admExtra2ShouldShow,
+    undergradVisible,
+    visualTab,
+    handleTabChange,
+    hideNav,
+  } = usePublicNavbar();
 
   const { items: socialItems } = useSocialLinks();
 
-  const logout = async () => {
-    if (auth) {
-      await signOut(auth);
-      navigateTo("/");
-    }
-  };
+  // shared tab classes (full-height block, custom active highlight)
+  // NOTE: font-normal (not bold), Montserrat comes from UiTabsList
+  const tabBaseClass =
+    "relative cursor-pointer flex items-center h-full px-5 md:px-6 font-normal text-base md:text-lg " +
+    "transition-colors duration-150 rounded-none " +
+    "data-[state=active]:bg-transparent data-[state=active]:text-inherit " +
+    "data-[state=active]:shadow-none data-[state=active]:border-none";
 
-  onMounted(async () => {
-    try {
-      const snapshot = await getDocs(collection(db, "departments"));
-      departments.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name || "Unnamed Dept",
-      }));
+  // active: ONLY yellow text/icon, no background; stays yellow on hover
+  const activeTabClass = "bg-transparent text-yellow-300 hover:text-yellow-300";
 
-      // warm a couple of admission docs + flags to reduce initial flicker
-      // non-critical if fails
-      try {
-        await Promise.all([
-          getDoc(doc(db, "admission_sections", "extra_section_1")),
-          getDoc(doc(db, "admission_sections", "extra_section_2")),
-          getDoc(flagsRef),
-        ]);
-      } catch (e) {
-        // ignore warm errors
-      }
-    } catch (err) {
-      console.error("🔥 Failed to load departments:", err);
-    }
-  });
+  // inactive: white, darker maroon on hover
+  const inactiveTabClass = "text-white hover:bg-red-800 hover:text-white";
 
-  function getDropdownDirection(triggerEl: HTMLElement): "left" | "right" {
-    const { right } = triggerEl.getBoundingClientRect();
-    const spaceRight = window.innerWidth - right;
-    return spaceRight < 320 ? "left" : "right";
-  }
-  function setProgramDirection(index: number) {
-    const triggerEl = departmentRefs.value[index];
-    if (triggerEl) {
-      programDirections.value[index] = getDropdownDirection(triggerEl);
-    }
-  }
+  // dropdown styling (light panel, Montserrat)
+  const dropdownContentClass =
+    "bg-white text-neutral-900 border border-red-900 rounded-xl shadow-lg py-2 font-montserrat";
 
-  // to hide header on scroll down
-  const hideNav = ref(false);
-  let lastScrollY = window.scrollY;
-
-  function handleScroll() {
-    const currentScrollY = window.scrollY;
-    if (currentScrollY > lastScrollY && currentScrollY > 80) {
-      hideNav.value = true; // Hide when scrolling down
-    } else {
-      hideNav.value = false; // Show when scrolling up
-    }
-    lastScrollY = currentScrollY;
-  }
-
-  function submitSearch() {
-    if (searchQuery.value.trim()) {
-      router.push({ path: "/search", query: { q: searchQuery.value.trim() } });
-    }
-  }
-
-  onMounted(() => {
-    window.addEventListener("scroll", handleScroll);
-  });
-  onBeforeUnmount(() => {
-    window.removeEventListener("scroll", handleScroll);
-  });
-
+  const dropdownItemClass =
+    "px-4 py-2 text-sm md:text-base font-montserrat text-neutral-900 " +
+    "hover:bg-neutral-100 focus:bg-neutral-100 cursor-pointer";
 </script>
 
 <style scoped>
@@ -462,7 +389,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-  /* NO leave styles — it remains */
 
   /* NAVBAR fade up and disappear */
   .nav-fade-up-enter-active,
@@ -487,25 +413,4 @@
     opacity: 0;
     transform: translateY(-20px);
   }
-
-  @keyframes slideDown {
-    from {
-      transform: translateY(-100%);
-    }
-    to {
-      transform: translateY(0);
-    }
-  }
-  @keyframes slideUp {
-    from {
-      transform: translateY(50px);
-    }
-    to {
-      transform: translateY(0);
-    }
-  }
-
-  /* *{
-    outline:1px solid red;
-  } */
 </style>
