@@ -2,9 +2,13 @@
   <main class="p-8">
     <div class="flex justify-between">
       <div class="flex flex-col">
-        <span class="text-2xl font-bold text-red-900">User Accounts</span>
-        <span class="text-sm">Manage roles, department, and access</span>
-      </div>
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Manage Accounts
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage user accounts and their access levels
+      </span>
+    </div>
 
       <UiButton
         @click="showCreateAccountModal = true"
@@ -14,27 +18,21 @@
       </UiButton>
     </div>
 
-    <CreateAccountModal v-if="showCreateAccountModal" @close="showCreateAccountModal = false" />
+    <CreateAccountModal
+      v-if="showCreateAccountModal"
+      @close="showCreateAccountModal = false"
+    />
 
     <!-- Search + Filters -->
     <div class="mb-6 mt-2 flex justify-between gap-4">
-      <div class="flex w-3/4 items-center justify-between">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search users by name or email..."
-          class="w-1/3 rounded border px-4 py-2"
-        />
+      <!-- Search component -->
+      <div class="flex w-3/4 items-center">
+        <UserSearchInput v-model="searchQuery" class="w-full max-w-md" />
       </div>
 
-      <!-- Role Filter -->
-      <div>
-        <!-- v-model binds to selectedRole; values use our canonical keys -->
-        <select v-model="selectedRole" class="select-bordered rounded border px-8 py-2">
-          <option value="">All Roles</option>
-          <option value="head_admin">Department Head</option>
-          <option value="faculty">Faculty</option>
-        </select>
+      <!-- Role Filter component -->
+      <div class="flex items-center">
+        <UserRoleFilter v-model="selectedRole" />
       </div>
     </div>
 
@@ -50,9 +48,13 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in filteredUsers" :key="user.id" class="border-b hover:bg-gray-50">
+          <tr
+            v-for="user in filteredUsers"
+            :key="user.id"
+            class="border-b hover:bg-gray-50"
+          >
             <!-- Profile -->
-            <td class="flex items-center space-x-3 px-4 py-2">
+            <td class="flex items-center space-x-3 px-4 py-2 text-left">
               <img
                 :src="user.photo || '/placeholder.png'"
                 alt="Profile"
@@ -62,7 +64,6 @@
                 <span class="font-trajan text-base font-semibold">
                   {{ user.fullName || "Unnamed" }}
                 </span>
-                <!-- Show a pretty role label regardless of how it's saved -->
                 <span class="text-xs">
                   {{ prettyRole(user.role) }}
                 </span>
@@ -70,33 +71,48 @@
             </td>
 
             <!-- Email -->
-            <td class="px-4 py-1">{{ user.email }}</td>
+            <td class="px-4 py-1">
+              {{ user.email }}
+            </td>
 
             <!-- Status -->
             <td class="px-4 py-1">
               <span
                 :class="
-                  user.status === 'active' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                  user.status === 'active'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-red-500 text-white'
                 "
                 class="rounded-full px-3 py-1 text-sm font-semibold"
               >
-                {{ user.status === "active" ? "Active" : "Inactive" }}
+                {{ user.status === 'active' ? 'Active' : 'Inactive' }}
               </span>
             </td>
 
             <!-- Actions -->
             <td class="px-4 py-1">
-              <UiButton
-                @click="toggleStatus(user)"
-                :class="
-                  user.status === 'active'
-                    ? 'bg-red-900 hover:bg-red-950'
-                    : 'bg-green-500 hover:bg-green-600'
-                "
-                class="rounded px-2 py-1 text-white"
-              >
-                {{ user.status === "active" ? "Deactivate" : "Activate" }}
-              </UiButton>
+              <div class="flex items-center justify-center gap-2">
+                <!-- Manage Access button (opens side panel) -->
+                <UiButton
+                  class="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-200"
+                  @click="openAccessPanel(user)"
+                >
+                  Manage Access
+                </UiButton>
+
+                <!-- Activate / Deactivate -->
+                <UiButton
+                  @click="toggleStatus(user)"
+                  :class="
+                    user.status === 'active'
+                      ? 'bg-red-900 hover:bg-red-950'
+                      : 'bg-green-500 hover:bg-green-600'
+                  "
+                  class="rounded px-2 py-1 text-xs font-medium text-white"
+                >
+                  {{ user.status === 'active' ? 'Deactivate' : 'Activate' }}
+                </UiButton>
+              </div>
             </td>
           </tr>
 
@@ -109,118 +125,125 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Access panel -->
+    <ManageUserAccessPanel
+      v-if="selectedUser"
+      v-model:open="showAccessPanel"
+      :user-name="selectedUser.fullName || 'Unnamed'"
+      :user-email="selectedUser.email || ''"
+      :user-role-label="prettyRole(selectedUser.role)"
+      :user-photo="selectedUser.photo"
+      :initial-access="selectedUser.moduleAccess || {}"
+      @save="handleAccessSave"
+    />
   </main>
 </template>
 
 <script setup>
-  /**
-   * Implements role filtering:
-   * - Dropdown values use canonical keys: "", "head_admin", "faculty"
-   * - We normalize whatever is stored in Firestore (e.g., "Head Admin", "Department Head", "headadmin")
-   *   to one of the same canonical keys for reliable comparisons.
-   * - Search and role filter combine together.
-   */
+import { collection, doc, getFirestore, onSnapshot, updateDoc } from "firebase/firestore";
+import { onMounted, ref } from "vue";
+import ManageUserAccessPanel from "@/components/Admin/ManageUserAccessPanel.vue";
+import CreateAccountModal from "@/components/Admin/createAccountModal.vue";
+import UserSearchInput from "@/components/Admin/UserSearchInput.vue";
+import UserRoleFilter from "@/components/Admin/UserRoleFilter.vue";
+import { useUserSearchAndFilter } from "@/composables/useUserSearchAndFilter";
 
-  import { collection, doc, getFirestore, onSnapshot, updateDoc } from "firebase/firestore";
-  import { computed, onMounted, ref } from "vue";
+definePageMeta({
+  middleware: ["auth"],
+  roles: ["super_admin"],
+  layout: "super-admin",
+});
 
-  definePageMeta({
-     middleware: ['auth'],
-     roles: ['super_admin'],
-    layout: "super-admin",
+const showCreateAccountModal = ref(false);
+const db = getFirestore();
+const users = ref([]);
+
+/** For the access panel */
+const showAccessPanel = ref(false);
+const selectedUser = ref(null);
+
+/** Use reusable search + role filter logic */
+const {
+  searchQuery,      // v-model for UserSearchInput
+  selectedRole,     // v-model for UserRoleFilter
+  filteredUsers,    // used in v-for
+  normalizeRole,    // used here to hide super admins
+  prettyRole,       // used in template
+} = useUserSearchAndFilter(users);
+
+/** Live users stream (exclude Super Admins from the table) */
+onMounted(() => {
+  const usersCollection = collection(db, "users");
+  onSnapshot(usersCollection, (snapshot) => {
+    users.value = snapshot.docs
+      .map((d) => {
+        const data = d.data();
+        return {
+          // keep auth UID if you need it later
+          uid: data.uid ?? data.id ?? null,
+          // all other fields
+          ...data,
+          // **force id to always be the Firestore document ID**
+          id: d.id,
+        };
+      })
+      // use normalizeRole from the composable
+      .filter((u) => normalizeRole(u.role) !== "super_admin");
   });
+});
 
-  const showCreateAccountModal = ref(false);
-  const db = getFirestore();
-  const users = ref([]);
-
-  /** Search text */
-  const searchQuery = ref("");
-
-  /**
-   * Selected role filter:
-   *  ""           => All Roles
-   *  "head_admin" => Department Head (Head Admin)
-   *  "faculty"    => Faculty
-   */
-  const selectedRole = ref("");
-
-  /**
-   * normalizeRole:
-   * Convert many possible stored role strings to our canonical keys.
-   * Examples:
-   *   "Head Admin", "headadmin", "Department Head", "dept head" -> "head_admin"
-   *   "Faculty", "faculty" -> "faculty"
-   *   "Super Admin" -> "super_admin" (we still exclude it from list below)
-   */
-  function normalizeRole(role) {
-    const raw = (role || "").toString().trim().toLowerCase().replace(/\s|-/g, "");
-    if (["headadmin", "departmenthead", "depthead"].includes(raw)) return "head_admin";
-    if (["faculty", "facultymember"].includes(raw)) return "faculty";
-    if (["superadmin"].includes(raw)) return "super_admin";
-    // Fallback: convert spaces to underscores (e.g., "head admin" -> "head_admin")
-    return (role || "").toString().trim().toLowerCase().replace(/\s+/g, "_");
+/** Toggle active/inactive */
+const toggleStatus = async (user) => {
+  const userDocRef = doc(db, "users", user.id); // id = Firestore doc ID
+  const newStatus = user.status === "active" ? "inactive" : "active";
+  try {
+    await updateDoc(userDocRef, { status: newStatus });
+    alert(`${user.fullName} has been ${newStatus === "active" ? "activated" : "deactivated"}`);
+  } catch (error) {
+    console.error("Error updating user status:", error);
+    alert("Failed to update user status. Please try again.");
   }
+};
 
-  /**
-   * prettyRole:
-   * For display only—maps canonical keys back to nice labels.
-   */
-  function prettyRole(role) {
-    switch (normalizeRole(role)) {
-      case "head_admin":
-        return "Head Admin";
-      case "faculty":
-        return "Faculty";
-      case "super_admin":
-        return "Super Admin";
-      default:
-        return role || "Unknown";
+/** Open the Manage Access panel for a given user */
+const openAccessPanel = (user) => {
+  selectedUser.value = user;
+  showAccessPanel.value = true;
+};
+
+/** Handle save from ManageUserAccessPanel (PERSIST to Firestore) */
+const handleAccessSave = async (newAccess) => {
+  if (!selectedUser.value) return;
+
+  const userId = selectedUser.value.id; // Firestore doc ID
+  const userDocRef = doc(db, "users", userId);
+
+  try {
+    await updateDoc(userDocRef, {
+      moduleAccess: newAccess,
+    });
+
+    // Update local selectedUser
+    selectedUser.value = {
+      ...selectedUser.value,
+      moduleAccess: newAccess,
+    };
+
+    // Update the users array so the table stays in sync
+    const idx = users.value.findIndex((u) => u.id === userId);
+    if (idx !== -1) {
+      users.value[idx] = {
+        ...users.value[idx],
+        moduleAccess: newAccess,
+      };
     }
+
+    console.log("Access saved to Firestore for doc:", userId, newAccess);
+    alert("Module access updated successfully.");
+  } catch (error) {
+    console.error("Error updating module access:", error);
+    alert("Failed to update access. Please try again.");
   }
-
-  // Expose prettyRole to the template
-  // (Functions are usable directly in <script setup>, no need to return)
-
-  /** Live users stream (exclude Super Admins from the table) */
-  onMounted(() => {
-    const usersCollection = collection(db, "users");
-    onSnapshot(usersCollection, (snapshot) => {
-      users.value = snapshot.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((u) => normalizeRole(u.role) !== "super_admin");
-    });
-  });
-
-  /** Combined search + role filter */
-  const filteredUsers = computed(() => {
-    const q = searchQuery.value.trim().toLowerCase();
-    const selected = selectedRole.value; // "", "head_admin", "faculty"
-
-    return users.value.filter((user) => {
-      // 1) Role filter
-      const userRoleKey = normalizeRole(user.role);
-      const rolePass = selected === "" ? true : userRoleKey === selected;
-
-      // 2) Search filter (full name or email)
-      const name = (user.fullName || "").toLowerCase();
-      const email = (user.email || "").toLowerCase();
-      const searchPass = q === "" ? true : name.includes(q) || email.includes(q);
-
-      return rolePass && searchPass;
-    });
-  });
-
-  /** Toggle active/inactive */
-  const toggleStatus = async (user) => {
-    const userDocRef = doc(db, "users", user.id);
-    const newStatus = user.status === "active" ? "inactive" : "active";
-    try {
-      await updateDoc(userDocRef, { status: newStatus });
-      alert(`${user.fullName} has been ${newStatus === "active" ? "activated" : "deactivated"}`);
-    } catch (error) {
-      console.error("Error updating user status:", error);
-      alert("Failed to update user status. Please try again.");
-    }
-  };
+};
 </script>

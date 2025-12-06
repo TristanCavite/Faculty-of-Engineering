@@ -118,7 +118,7 @@ import AutoFitCalendar from "@/components/AutoFitCalendar.vue"
 import { useEventsCalendar, type EventRecord } from "@/composables/useEventsCalendar"
 import { watchOnce } from "@vueuse/core"
 import Autoplay from "embla-carousel-autoplay"
-import { collection, getDocs, orderBy, query } from "firebase/firestore"
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore" // ← added where
 import { computed, onMounted, ref, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useFirestore } from "vuefire"
@@ -188,12 +188,17 @@ function setEventSlide(eventId: string, slideIndex: number) {
 }
 
 onMounted(async () => {
-  const snap = await getDocs(collection(db, "events"))
-  events.value = snap.docs.map((doc) => ({
-    id: doc.id,
-    currentSlide: 0,
-    ...doc.data(),
-  })) as unknown as EventRecord[]
+  // Prefer server-side filter
+  const qRef = query(collection(db, "events"), where("published", "==", true))
+  const snap = await getDocs(qRef)
+  events.value = snap.docs
+    .map((doc) => ({
+      id: doc.id,
+      currentSlide: 0,
+      ...(doc.data() as any),
+    }))
+    // Extra safety: keep only published = true
+    .filter((e: any) => e?.published === true) as unknown as EventRecord[]
 })
 
 const {
@@ -243,8 +248,14 @@ const sortedByDateDesc = computed(() =>
 const listByType = computed(() => {
   if (typeFilter.value === "all") return sortedByDateDesc.value
   const normalizeType = (v: any) =>
-    String(v || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
-  return sortedByDateDesc.value.filter(e => normalizeType(e.eventType) === typeFilter.value)
+    String(v || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+  return sortedByDateDesc.value.filter(
+    (e) => normalizeType(e.eventType) === typeFilter.value
+  )
 })
 
 // Provide a version typed to the MoreEvents component's EventRecord type (ensures title is a string)

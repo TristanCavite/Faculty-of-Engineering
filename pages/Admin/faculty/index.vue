@@ -32,8 +32,9 @@ import {
 import EditableUserProfile from '@/components/EditableUserProfile.vue';
 
 definePageMeta({
-  middleware: 'auth',
-  layout: 'faculty',
+    middleware: ['auth'],
+     roles: ['faculty'],
+    layout: "faculty",
 });
 
 const auth = getAuth();
