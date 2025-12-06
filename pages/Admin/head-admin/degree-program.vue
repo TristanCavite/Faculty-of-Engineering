@@ -1,8 +1,13 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Degree Program Pages</h1>
+    <div class="flex flex-col">
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Degree Program Management
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage the content displayed on your department's degree program pages
+      </span>
     </div>
 
     <!-- Program selector -->

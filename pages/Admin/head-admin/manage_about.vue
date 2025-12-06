@@ -1,8 +1,13 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage About Page</h1>
+    <div class="flex flex-col">
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Manage About Sections
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage the content displayed on the About page
+      </span>
     </div>
 
     <!-- Section Selector -->

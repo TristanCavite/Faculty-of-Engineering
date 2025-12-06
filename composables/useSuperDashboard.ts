@@ -76,7 +76,6 @@ export function useSuperDashboard() {
     'Super Admin': ['Super Admin', 'super_admin', 'super admin', 'super-admin'],
     'Head Admin' : ['Head Admin',  'head_admin',  'head admin',  'head-admin'],
     'Faculty'    : ['Faculty', 'faculty'],
-    'Media Admin': ['Media Admin', 'media_admin', 'media admin', 'media-admin'],
   }
 
   async function countByRoleFlexible(roleKey: keyof typeof ROLE_VARIANTS): Promise<number> {
@@ -104,16 +103,15 @@ export function useSuperDashboard() {
     }
   }
 
-  const roles = ref({ superAdmin: 0, headAdmin: 0, faculty: 0, mediaAdmin: 0 })
+  const roles = ref({ superAdmin: 0, headAdmin: 0, faculty: 0 })
 
   const rolesBar = computed(() => {
-    const values = [roles.value.superAdmin, roles.value.headAdmin, roles.value.faculty, roles.value.mediaAdmin]
+    const values = [roles.value.superAdmin, roles.value.headAdmin, roles.value.faculty]
     const max = Math.max(1, ...values)
     return [
       { label: 'Super Admin', value: roles.value.superAdmin, percent: Math.round((roles.value.superAdmin / max) * 100), color: 'bg-gray-900' },
       { label: 'Head Admin',  value: roles.value.headAdmin,  percent: Math.round((roles.value.headAdmin  / max) * 100), color: 'bg-teal-600' },
       { label: 'Faculty',     value: roles.value.faculty,    percent: Math.round((roles.value.faculty    / max) * 100), color: 'bg-sky-600' },
-      { label: 'Media Admin', value: roles.value.mediaAdmin, percent: Math.round((roles.value.mediaAdmin / max) * 100), color: 'bg-violet-600' },
     ]
   })
 
@@ -121,7 +119,6 @@ export function useSuperDashboard() {
     { label: 'Super Admin', value: roles.value.superAdmin, color: '#111827' },
     { label: 'Head Admin',  value: roles.value.headAdmin,  color: '#0d9488' },
     { label: 'Faculty',     value: roles.value.faculty,    color: '#0284c7' },
-    { label: 'Media Admin', value: roles.value.mediaAdmin, color: '#7c3aed' },
   ])
 
   /* -------------------- Recent (PUBLISHED only) -------------------- */
@@ -138,7 +135,6 @@ export function useSuperDashboard() {
   }
   const recent = ref<FeedItem[]>([])
 
-  // keys are collection names used below
   const IconByCollection = {
     news: Newspaper,
     events: CalendarFold,
@@ -223,19 +219,18 @@ export function useSuperDashboard() {
       ])
       stats.value = { accounts, departments, news, events, downloads, research }
 
-      const [sa, ha, fa, ma] = await Promise.all([
+      const [sa, ha, fa] = await Promise.all([
         countByRoleFlexible('Super Admin'),
         countByRoleFlexible('Head Admin'),
         countByRoleFlexible('Faculty'),
-        countByRoleFlexible('Media Admin'),
       ])
-      roles.value = { superAdmin: sa, headAdmin: ha, faculty: fa, mediaAdmin: ma }
+      roles.value = { superAdmin: sa, headAdmin: ha, faculty: fa }
 
       const [rNews, rEvents, rDownloads, rResearch] = await Promise.all([
         recentFrom('news', 'News', routes.news),
         recentFrom('events', 'Event', routes.events),
         recentFrom('downloads', 'Download', routes.downloads),
-        recentFrom('researches', 'Research', routes.research), // 👈 plural
+        recentFrom('researches', 'Research', routes.research), 
       ])
       recent.value = [...rNews, ...rEvents, ...rDownloads, ...rResearch]
         .sort((a, b) => (a.when && b.when ? b.when.getTime() - a.when.getTime() : 0))

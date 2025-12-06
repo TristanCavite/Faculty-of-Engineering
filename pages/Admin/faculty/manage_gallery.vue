@@ -1,9 +1,12 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Gallery</h1>
-    </div>
+     <div class="flex flex-col">
+        <span class="font-montserrat text-4xl font-bold text-red-900"> Manage Gallery</span>
+        <span class="font-montserrat text-xs">
+          Manage Gallery Images for Various Pages
+        </span>
+      </div>
 
     <!-- Tip -->
     <p class="text-sm text-gray-500">

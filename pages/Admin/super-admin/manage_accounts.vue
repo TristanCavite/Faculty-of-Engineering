@@ -2,9 +2,13 @@
   <main class="p-8">
     <div class="flex justify-between">
       <div class="flex flex-col">
-        <span class="text-2xl font-bold text-red-900">User Accounts</span>
-        <span class="text-sm">Manage roles, department, and access</span>
-      </div>
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Manage Accounts
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage user accounts and their access levels
+      </span>
+    </div>
 
       <UiButton
         @click="showCreateAccountModal = true"
@@ -21,25 +25,14 @@
 
     <!-- Search + Filters -->
     <div class="mb-6 mt-2 flex justify-between gap-4">
-      <div class="flex w-3/4 items-center justify-between">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search users by name or email..."
-          class="w-1/3 rounded border px-4 py-2"
-        />
+      <!-- Search component -->
+      <div class="flex w-3/4 items-center">
+        <UserSearchInput v-model="searchQuery" class="w-full max-w-md" />
       </div>
 
-      <!-- Role Filter -->
-      <div>
-        <select
-          v-model="selectedRole"
-          class="select-bordered rounded border px-8 py-2"
-        >
-          <option value="">All Roles</option>
-          <option value="head_admin">Department Head</option>
-          <option value="faculty">Faculty</option>
-        </select>
+      <!-- Role Filter component -->
+      <div class="flex items-center">
+        <UserRoleFilter v-model="selectedRole" />
       </div>
     </div>
 
@@ -149,8 +142,12 @@
 
 <script setup>
 import { collection, doc, getFirestore, onSnapshot, updateDoc } from "firebase/firestore";
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import ManageUserAccessPanel from "@/components/Admin/ManageUserAccessPanel.vue";
+import CreateAccountModal from "@/components/Admin/createAccountModal.vue";
+import UserSearchInput from "@/components/Admin/UserSearchInput.vue";
+import UserRoleFilter from "@/components/Admin/UserRoleFilter.vue";
+import { useUserSearchAndFilter } from "@/composables/useUserSearchAndFilter";
 
 definePageMeta({
   middleware: ["auth"],
@@ -162,44 +159,18 @@ const showCreateAccountModal = ref(false);
 const db = getFirestore();
 const users = ref([]);
 
-/** Search text */
-const searchQuery = ref("");
-
-const selectedRole = ref("");
-
 /** For the access panel */
 const showAccessPanel = ref(false);
 const selectedUser = ref(null);
 
-/**
- * normalizeRole:
- * Convert many possible stored role strings to our canonical keys.
- */
-function normalizeRole(role) {
-  const raw = (role || "").toString().trim().toLowerCase().replace(/\s|-/g, "");
-  if (["headadmin", "departmenthead", "depthead"].includes(raw)) return "head_admin";
-  if (["faculty", "facultymember"].includes(raw)) return "faculty";
-  if (["superadmin"].includes(raw)) return "super_admin";
-  // Fallback: convert spaces to underscores (e.g., "head admin" -> "head_admin")
-  return (role || "").toString().trim().toLowerCase().replace(/\s+/g, "_");
-}
-
-/**
- * prettyRole:
- * For display only—maps canonical keys back to nice labels.
- */
-function prettyRole(role) {
-  switch (normalizeRole(role)) {
-    case "head_admin":
-      return "Head Admin";
-    case "faculty":
-      return "Faculty";
-    case "super_admin":
-      return "Super Admin";
-    default:
-      return role || "Unknown";
-  }
-}
+/** Use reusable search + role filter logic */
+const {
+  searchQuery,      // v-model for UserSearchInput
+  selectedRole,     // v-model for UserRoleFilter
+  filteredUsers,    // used in v-for
+  normalizeRole,    // used here to hide super admins
+  prettyRole,       // used in template
+} = useUserSearchAndFilter(users);
 
 /** Live users stream (exclude Super Admins from the table) */
 onMounted(() => {
@@ -217,26 +188,8 @@ onMounted(() => {
           id: d.id,
         };
       })
+      // use normalizeRole from the composable
       .filter((u) => normalizeRole(u.role) !== "super_admin");
-  });
-});
-
-/** Combined search + role filter */
-const filteredUsers = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
-  const selected = selectedRole.value; // "", "head_admin", "faculty"
-
-  return users.value.filter((user) => {
-    // 1) Role filter
-    const userRoleKey = normalizeRole(user.role);
-    const rolePass = selected === "" ? true : userRoleKey === selected;
-
-    // 2) Search filter (full name or email)
-    const name = (user.fullName || "").toLowerCase();
-    const email = (user.email || "").toLowerCase();
-    const searchPass = q === "" ? true : name.includes(q) || email.includes(q);
-
-    return rolePass && searchPass;
   });
 });
 

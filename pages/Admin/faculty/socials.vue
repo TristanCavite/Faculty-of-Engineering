@@ -2,7 +2,12 @@
   <div class="mx-auto mt-8 max-w-3xl space-y-6">
     <!-- Header + actions -->
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Social Links</h1>
+      <div class="flex flex-col">
+        <span class="font-montserrat text-4xl font-bold text-red-900"> Manage Social Icons</span>
+        <span class="font-montserrat text-xs">
+          Manage social media links shown in the website navbar
+        </span>
+      </div>
 
       <div class="flex gap-2">
         <UiButton

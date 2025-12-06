@@ -6,50 +6,76 @@
 // - Supports route-meta role guards and path-prefix guards
 // - Locks down /admin/* (including /admin/super-admin/*)
 
-import { initAuthVuefire, waitForAuthVuefire, useAuthVuefireState } from '@/composables/useAuthVuefire'
+import {
+  initAuthVuefire,
+  waitForAuthVuefire,
+  useAuthVuefireState,
+} from '@/composables/useAuthVuefire'
 import { useFirestore } from 'vuefire'
 import {
-  doc, getDoc, getDocs, query, where, limit as qLimit,
-  collection, type DocumentData, type Firestore
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  limit as qLimit,
+  collection,
+  type DocumentData,
+  type Firestore,
 } from 'firebase/firestore'
 
 // ---------- Types & Helpers ----------
-type Role = 'super_admin' | 'head_admin' | 'faculty' | 'media_admin'
+type Role = 'super_admin' | 'head_admin' | 'faculty'
 
 const ADMIN_BASE = '/admin'
-const pathStarts = (p: string, prefix: string) => p === prefix || p.startsWith(prefix + '/')
+const pathStarts = (p: string, prefix: string) =>
+  p === prefix || p.startsWith(prefix + '/')
 
 // Exact PATH public routes only (no startsWith('/'))
-const PUBLIC_ROUTES = new Set<string>(['/', '/login', '/forgot-password', '/unauthorized'])
+const PUBLIC_ROUTES = new Set<string>([
+  '/',
+  '/login',
+  '/forgot-password',
+  '/unauthorized',
+])
 
 // Accept both spaced and snake_case role labels, any case.
 function normalizeRole(input: unknown): Role | 'unknown' {
   if (typeof input !== 'string') return 'unknown'
   const s = input.trim().toLowerCase().replace(/\s+/g, '_')
   if (s === 'super_admin') return 'super_admin'
-  if (s === 'head_admin')  return 'head_admin'
-  if (s === 'faculty')     return 'faculty'
-  if (s === 'media_admin') return 'media_admin'
+  if (s === 'head_admin') return 'head_admin'
+  if (s === 'faculty') return 'faculty'
   return 'unknown'
 }
 
 // Type guard: keep only real Role values (drops 'unknown' at type level)
 function isRole(r: unknown): r is Role {
-  return r === 'super_admin' || r === 'head_admin' || r === 'faculty' || r === 'media_admin'
+  return r === 'super_admin' || r === 'head_admin' || r === 'faculty'
 }
 
 // ACTIVE (case-insensitive). Super Admin bypasses this later.
 function isActive(status: unknown): boolean {
-  return typeof status === 'string' && status.trim().toLowerCase() === 'active'
+  return (
+    typeof status === 'string' &&
+    status.trim().toLowerCase() === 'active'
+  )
 }
 
 // Fetch profile once on demand.
 // 1) Try doc(users, uid). 2) If missing, query where('uid','==', uid) limit 1.
-async function fetchProfileOnce(db: Firestore, uid: string): Promise<DocumentData | null> {
+async function fetchProfileOnce(
+  db: Firestore,
+  uid: string,
+): Promise<DocumentData | null> {
   const byId = await getDoc(doc(db, 'users', uid))
   if (byId.exists()) return { id: byId.id, ...byId.data() }
 
-  const q = query(collection(db, 'users'), where('uid', '==', uid), qLimit(1))
+  const q = query(
+    collection(db, 'users'),
+    where('uid', '==', uid),
+    qLimit(1),
+  )
   const qs = await getDocs(q)
   if (!qs.empty) {
     const snap = qs.docs[0]
@@ -135,45 +161,36 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const SUPER_ADMIN_PREFIX = `${ADMIN_BASE}/super-admin`
     if (pathStarts(to.path, SUPER_ADMIN_PREFIX)) {
       if (normalizedRole === 'super_admin') return
-
-      // Media Admin: allow only specific content areas under super-admin
-      if (normalizedRole === 'media_admin') {
-        const mediaAllowed = [
-          `${SUPER_ADMIN_PREFIX}/about`,
-          `${SUPER_ADMIN_PREFIX}/admission`,
-          `${SUPER_ADMIN_PREFIX}/news`,
-          `${SUPER_ADMIN_PREFIX}/events`,
-          `${SUPER_ADMIN_PREFIX}/research`,
-        ]
-        const ok = mediaAllowed.some((p) => pathStarts(to.path, p))
-        if (ok) return
-      }
-
       return navigateTo('/unauthorized', { replace: true })
     }
 
     // Head Admin area
     const HEAD_ADMIN_PREFIX = `${ADMIN_BASE}/head-admin`
     if (pathStarts(to.path, HEAD_ADMIN_PREFIX)) {
-      if (normalizedRole === 'head_admin' || normalizedRole === 'super_admin') return
+      if (
+        normalizedRole === 'head_admin' ||
+        normalizedRole === 'super_admin'
+      )
+        return
       return navigateTo('/unauthorized', { replace: true })
     }
 
     // Faculty area
     const FACULTY_PREFIX = `${ADMIN_BASE}/faculty`
     if (pathStarts(to.path, FACULTY_PREFIX)) {
-      if (normalizedRole === 'faculty' || normalizedRole === 'super_admin') return
+      if (
+        normalizedRole === 'faculty' ||
+        normalizedRole === 'super_admin'
+      )
+        return
       return navigateTo('/unauthorized', { replace: true })
     }
 
-    // Media Admin area (if you add a dedicated section)
-    const MEDIA_ADMIN_PREFIX = `${ADMIN_BASE}/media-admin`
-    if (pathStarts(to.path, MEDIA_ADMIN_PREFIX)) {
-      if (normalizedRole === 'media_admin' || normalizedRole === 'super_admin') return
-      return navigateTo('/unauthorized', { replace: true })
-    }
+    // NOTE: media-admin dedicated area removed
   }
 
   // 9) Default allow
-  console.log(`[auth] allow uid=${currentUser.value.uid} role=${normalizedRole}`)
+  console.log(
+    `[auth] allow uid=${currentUser.value.uid} role=${normalizedRole}`,
+  )
 })

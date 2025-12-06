@@ -1,78 +1,101 @@
 <template>
-  <div
-    class="flex items-center justify-center h-screen bg-center bg-cover"
-    style="background-image: url('bg.png')"
-  >
-    <div class="w-full max-w-md p-6 bg-white border border-gray-300 rounded shadow-md">
-      <div class="flex flex-col items-center my-6 space-y-2">
-        <img src="/logoTab.png" alt="Logo" class="h-14" />
-        <h1 class="text-2xl font-semibold tracking-tight">Log in</h1>
-      </div>
+    <!-- Page background layers -->
+  <div class="relative flex items-center justify-center min-h-screen overflow-hidden">
+    <!-- Blurred photo -->
+    <div
+      class="absolute inset-0 scale-105 bg-center bg-cover -z-20 blur-xl"
+      style="background-image: url('/bg.png')"
+      aria-hidden="true"
+    />
+    <!-- Dark overlay to improve contrast -->
+    <div class="absolute inset-0 -z-10 bg-black/70" aria-hidden="true" />
 
-      <p class="mb-8 text-center text-gray-500">Enter your email & password to log in.</p>
+    <!-- Glassy form box -->
+   <div class="relative mx-4 w-full max-w-[480px] sm:max-w-[520px]">
 
-      <form @submit.prevent="submit">
-        <fieldset class="grid gap-4">
-          <!-- EMAIL -->
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-600">Email</label>
-            <input
-              v-model="email"
-              type="email"
-              id="email"
-              autocomplete="email"
-              required
-              class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none focus:ring focus:ring-red-600"
-              placeholder="sample.rani@valid.com"
-            />
-          </div>
+      <div
+        class="rounded-2xl bg-red-900/70 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+      >
+        <!-- Header -->
+        <div class="flex flex-col items-center px-8 pt-8">
+          <img src="/FE_logo_white_wbg.png" alt="Logo" class="h-14" />
+          <h1 class="mt-3 text-2xl font-semibold tracking-tight text-white">LOGIN</h1>
+          <p class="mt-1 mb-6 text-sm text-center text-white/70">
+            Enter your email & password to log in.
+          </p>
+        </div>
 
-          <!-- PASSWORD -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-600">Password</label>
-            <input
-              v-model="password"
-              type="password"
-              id="password"
-              autocomplete="current-password"
-              required
-              class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none focus:ring focus:ring-red-600"
-              placeholder="******"
-            />
-          </div>
+        <!-- Form -->
+        <form @submit.prevent="submit" class="px-8 pb-8">
+          <fieldset class="grid gap-4">
+            <!-- EMAIL -->
+            <div>
+              <label for="email" class="block text-sm font-medium text-white/80">Email</label>
+              <input
+                v-model="email"
+                type="email"
+                id="email"
+                autocomplete="email"
+                required
+                class="w-full px-3 py-2 mt-1 text-white transition border rounded-lg shadow-sm outline-none border-white/20 bg-white/5 placeholder-white/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
+                placeholder="sample.rani@valid.com"
+              />
+            </div>
 
-          <!-- REMEMBER + FORGOT -->
-          <div class="flex items-center justify-between mt-2">
-            <label class="flex items-center">
-              <input v-model="rememberMe" type="checkbox" class="rounded border-gray-300 text-red-600 focus:ring-red-600" />
-              <span class="ml-2 text-sm text-gray-600">Remember me</span>
+            <!-- PASSWORD -->
+            <div>
+              <div class="flex items-center justify-between">
+                <label for="password" class="block text-sm font-medium text-white/80">Password</label>
+                <button
+                  type="button"
+                  class="text-sm font-medium underline text-white/90 decoration-white/30 underline-offset-4 hover:decoration-white"
+                  @click="forgotOpen = true"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <input
+                v-model="password"
+                type="password"
+                id="password"
+                autocomplete="current-password"
+                required
+                class="w-full px-3 py-2 mt-1 text-white transition border rounded-lg shadow-sm outline-none border-white/20 bg-white/5 placeholder-white/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
+                placeholder="******"
+              />
+            </div>
+
+            <!-- REMEMBER -->
+            <label class="inline-flex items-center gap-2 mt-1">
+              <input
+                v-model="rememberMe"
+                type="checkbox"
+                class="text-red-600 bg-transparent rounded border-white/30 focus:ring-red-600"
+              />
+              <span class="text-sm text-white/80">Remember me</span>
             </label>
 
-            <button type="button" class="text-sm font-medium underline text-red-600" @click="forgotOpen = true">
-              Forgot password?
+            <!-- SUBMIT -->
+            <button
+              type="submit"
+              :disabled="loading"
+              class="mt-2 w-full rounded-lg bg-white py-2.5 font-semibold text-black shadow-lg transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span v-if="!loading">Log In</span>
+              <span v-else>Signing in…</span>
             </button>
-          </div>
 
-          <!-- SUBMIT -->
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full mt-4 rounded-md bg-red-800 py-2 text-white font-semibold shadow-md transition hover:bg-red-700 disabled:opacity-60 focus:outline-none focus:ring focus:ring-red-600"
-          >
-            <span v-if="!loading">Log In</span>
-            <span v-else>Signing in…</span>
-          </button>
-
-          <!-- CANCEL -->
-          <button
-            type="button"
-            @click="cancel"
-            class="w-full mt-2 rounded-md bg-gray-300 py-2 text-gray-800 font-semibold shadow-md transition hover:bg-gray-400 focus:outline-none focus:ring focus:ring-gray-600"
-          >
-            Cancel
-          </button>
-        </fieldset>
-      </form>
+            <!-- CANCEL -->
+            <button
+              type="button"
+              @click="cancel"
+              class="w-full rounded-lg bg-white/10 py-2.5 font-semibold text-white shadow-sm transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/20"
+            >
+              Cancel
+            </button>
+          </fieldset>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -85,13 +108,7 @@
 </template>
 
 <script setup>
-/**
- * Login (no profile creation)
- * - Reads canonical:   users/<uid>
- * - If a legacy random-id doc exists (where('uid','==', uid) and id !== uid),
- *   it migrates data into users/<uid> and DELETES the legacy doc.
- * - Then routes by normalized role.
- */
+
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -121,37 +138,26 @@ const auth = getAuth()
 const db = getFirestore()
 const router = useRouter()
 
-/**
- * Load canonical user doc; if a legacy random-id doc exists, migrate then delete it.
- * IMPORTANT: does NOT create a new user profile when missing — admin must create it.
- */
 async function loadAndMigrateProfile(uid) {
-  // Canonical doc at users/<uid>
   const canonicalRef = doc(db, 'users', uid)
   const canonicalSnap = await getDoc(canonicalRef)
   const canonical = canonicalSnap.exists() ? { id: canonicalSnap.id, ...canonicalSnap.data() } : null
 
-  // Find legacy random-id doc with same uid
   const qs = await getDocs(query(collection(db, 'users'), where('uid', '==', uid), limit(3)))
   const legacyDoc = qs.docs.find(d => d.id !== uid) || null
   const legacy = legacyDoc ? { id: legacyDoc.id, ...legacyDoc.data() } : null
 
-  // If neither exists, do NOT create — this prevents duplicates forever
   if (!canonical && !legacy) return null
 
-  // Choose richer source of truth
   const richness = (x) => (x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0)
   const chosen = (richness(legacy) > richness(canonical)) ? legacy : canonical
 
-  // Upsert into canonical
   await setDoc(canonicalRef, {
     ...chosen,
     uid,
     email: chosen?.email || auth.currentUser?.email || '',
-    // keep your timestamps on server in admin flows; here it's fine to leave as is
   }, { merge: true })
 
-  // Delete legacy duplicate so lists stop showing it
   if (legacy && legacy.id !== uid) {
     try { await deleteDoc(doc(db, 'users', legacy.id)) }
     catch (e) { console.warn('Legacy user doc delete failed:', e) }
@@ -173,7 +179,6 @@ const submit = async () => {
     const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value.trim())
     const uid = cred.user.uid
 
-    // Load profile and perform one-time migration if a legacy doc exists
     const profile = await loadAndMigrateProfile(uid)
 
     if (!profile) {
@@ -189,13 +194,10 @@ const submit = async () => {
       return
     }
 
-    // Route by role (change to '/Admin/...' if your folder is capitalized)
     if (roleKey === 'super_admin') {
       router.push('/admin/super-admin')
     } else if (roleKey === 'head_admin') {
       router.push('/admin/head-admin')
-    } else if (roleKey === 'media_admin') {
-      router.push('/admin/media-admin')
     } else if (roleKey === 'faculty') {
       router.push('/admin/faculty')
     } else {

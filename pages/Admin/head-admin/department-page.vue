@@ -1,8 +1,13 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Department Page</h1>
+    <div class="flex flex-col">
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Department Page Management
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage the content displayed on your department's public page
+      </span>
     </div>
 
     <!-- Notice -->

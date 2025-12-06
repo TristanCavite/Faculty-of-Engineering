@@ -1,132 +1,205 @@
+<!-- components/Admin/HeadFacultyModal.vue -->
 <template>
-  <div
-    v-if="show"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    @click.self="emitClose"
-  >
-    <div class="w-full max-w-md rounded bg-white p-6 shadow-lg">
-      <h2 class="mb-4 text-lg font-bold">Add Faculty/Staff</h2>
+  <!-- Slide-in side panel like AddFacultyStaffModal -->
+  <Transition name="faculty-panel">
+    <div v-if="show" class="fixed inset-0 z-50 flex">
+      <!-- Overlay -->
+      <div class="flex-1 bg-black/40" @click="emitClose" />
 
-      <!-- Search with suggestions -->
-      <div class="relative mb-4">
-        <div class="relative">
-          <input
-            v-model="searchQuery"
-            @focus="dropdownVisible = true"
-            @input="filterUsers"
-            @blur="hideDropdown"
-            type="text"
-            placeholder="Search Faculty"
-            class="w-full rounded border px-3 py-2 pl-10"
-          />
-          <Search class="absolute left-3 top-2 h-5 w-5 text-gray-500" />
-        </div>
+      <!-- Side panel -->
+      <aside
+        class="relative flex h-full w-full max-w-lg flex-col bg-white shadow-xl"
+      >
+        <!-- Header -->
+        <header class="flex items-center justify-between border-b px-6 py-4">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Add Faculty/Staff
+          </h2>
 
-        <!-- Suggestions (scrollable) -->
-        <ul
-          v-if="dropdownVisible && filteredUsers.length"
-          class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded border bg-white shadow"
-        >
-          <li
-            v-for="user in filteredUsers"
-            :key="user.id"
-            :class="[
-              'cursor-pointer px-3 py-2 hover:bg-gray-100',
-              user.status === 'inactive' ? 'bg-yellow-100' : ''
-            ]"
-            @mousedown="selectUser(user)"
-            title="Click to select"
-          >
-            {{ user.name }}
-            <span v-if="user.status === 'inactive'" class="text-red-500">(Inactive)</span>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Designation (custom dropdown, scrollable) -->
-      <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium">Designation:</label>
-
-        <div class="relative" ref="designationMenuRef">
           <button
             type="button"
-            @click="isDesignationOpen = !isDesignationOpen"
-            class="flex w-full items-center justify-between rounded border px-3 py-2"
+            class="rounded-full p-1 text-gray-500 hover:bg-gray-100"
+            @click="emitClose"
           >
-            <span class="truncate">
-              {{ selectedUser.designation || 'Select Designation' }}
-            </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+            <X class="h-5 w-5" />
           </button>
+        </header>
 
-          <ul
-            v-if="isDesignationOpen"
-            class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded border bg-white shadow"
-          >
-            <li
-              v-for="d in localDesignations"
-              :key="d"
-              class="cursor-pointer px-3 py-2 hover:bg-gray-100"
-              @click="selectDesignation(d)"
-            >
-              {{ d }}
-            </li>
-          </ul>
-        </div>
-      </div>
+        <!-- Search -->
+        <section class="border-b px-6 py-4">
+          <UserSearchInput
+            v-model="searchQuery"
+            placeholder="Search faculty by name or email"
+            class="w-full"
+          />
+        </section>
 
-      <!-- Type of faculty/staff -->
-      <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium">Type:</label>
-        <select v-model="facultyType" class="w-full rounded border px-3 py-2">
-          <option value="Core">Core</option>
-          <option value="Affiliate">Affiliate</option>
-        </select>
-      </div>
-
-      <!-- Home department (only when Affiliate) -->
-      <div v-if="facultyType === 'Affiliate'" class="mb-2">
-        <label class="mb-1 block text-sm font-medium">Home department:</label>
-        <input
-          v-model="homeDepartment"
-          type="text"
-          placeholder="e.g., Department of Agricultural Engineering"
-          class="w-full rounded border px-3 py-2"
+        <!-- User list (max ~3 cards, scrollable) -->
+<section class="px-6 py-4">
+  <!-- ↓ reduced from max-h-64 to max-h-40 so footer doesn’t get pushed down -->
+  <div class="max-h-40 space-y-2 overflow-y-auto pr-1">
+    <template v-if="filteredUsers.length">
+      <button
+        v-for="user in filteredUsers"
+        :key="user.id"
+        type="button"
+        class="flex w-full items-center rounded-lg border px-3 py-2 text-left transition
+               hover:bg-neutral-50"
+        :class="selectedUser && selectedUser.id === user.id
+          ? 'border-red-900 bg-red-50/80 ring-1 ring-red-200'
+          : 'border-gray-200'"
+        @click="selectUser(user)"
+      >
+        <img
+          :src="user.photo || '/placeholder.png'"
+          alt="Profile"
+          class="mr-3 h-10 w-10 rounded-full object-cover"
         />
-        <p class="mt-1 text-xs text-gray-500">
-          Enter the member’s primary department outside this one.
-        </p>
-      </div>
 
-      <!-- Actions -->
-      <div class="mt-6 flex justify-end gap-2">
-        <button @click="emitClose" class="rounded bg-gray-300 px-4 py-2 hover:bg-gray-400">
-          Cancel
-        </button>
-        <button @click="addFacultyOrStaff" class="rounded bg-maroon px-4 py-2 text-white hover:bg-red-600">
-          Add
-        </button>
-      </div>
-    </div>
+        <div class="flex flex-col">
+          <span class="text-sm font-semibold text-gray-900">
+            {{ user.fullName || user.name || 'Unnamed' }}
+          </span>
+
+          <span class="text-xs text-gray-500">
+            {{ user.role || 'No role set' }}
+            <span
+              v-if="user.status === 'inactive'"
+              class="ml-1 text-red-500"
+            >
+              (Inactive)
+            </span>
+          </span>
+
+          <span class="text-xs text-gray-400">
+            {{ user.email }}
+          </span>
+        </div>
+      </button>
+    </template>
+
+    <p
+      v-else
+      class="py-8 text-center text-sm text-gray-500"
+    >
+      No users found for the current search.
+    </p>
   </div>
+</section>
+
+
+        <!-- Footer: designation + type + actions -->
+        <footer class="space-y-4 border-t px-6 py-4">
+          <!-- Designation -->
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700">
+              Designation:
+            </label>
+
+            <div class="relative">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between rounded-md border border-gray-300
+                       bg-gray-50 px-3 py-2.5 text-left text-sm text-gray-700
+                       focus:border-red-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-900"
+                @click="toggleDesignationDropdown"
+              >
+                <span class="truncate">
+                  {{ selectedDesignation || 'Select Designation' }}
+                </span>
+                <ChevronDown class="h-4 w-4 text-gray-500" />
+              </button>
+
+              <div
+                v-if="isDesignationOpen"
+                class="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-md
+                       border border-gray-200 bg-white shadow-lg"
+              >
+                <button
+                  v-for="d in localDesignations"
+                  :key="d"
+                  type="button"
+                  class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  @click="selectDesignation(d)"
+                >
+                  {{ d }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Type -->
+          <div>
+            <label class="mb-1 block text-sm font-medium text-gray-700">
+              Type:
+            </label>
+            <select
+              v-model="facultyType"
+              class="w-full rounded-md border border-gray-300 bg-gray-50
+                     px-3 py-2 text-sm text-gray-700
+                     focus:border-red-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-900"
+            >
+              <option value="Core">Core</option>
+              <option value="Affiliate">Affiliate</option>
+            </select>
+          </div>
+
+          <!-- Home department (only when Affiliate) -->
+          <div v-if="facultyType === 'Affiliate'">
+            <label class="mb-1 block text-sm font-medium text-gray-700">
+              Home department:
+            </label>
+            <input
+              v-model="homeDepartment"
+              type="text"
+              placeholder="e.g., Department of Agricultural Engineering"
+              class="w-full rounded-md border border-gray-300 bg-gray-50
+                     px-3 py-2 text-sm text-gray-700
+                     focus:border-red-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-red-900"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Enter the member’s primary department outside this one.
+            </p>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex justify-end gap-3 pt-2">
+            <UiButton
+              type="button"
+              class="rounded bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+              @click="emitClose"
+            >
+              Cancel
+            </UiButton>
+
+            <UiButton
+              type="button"
+              class="rounded bg-red-900 px-4 py-2 text-sm font-medium text-white
+                     hover:bg-red-950 disabled:cursor-not-allowed disabled:bg-red-300"
+              :disabled="!canSave"
+              @click="addFacultyOrStaff"
+            >
+              Save changes
+            </UiButton>
+          </div>
+        </footer>
+      </aside>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
 /**
- * HeadFacultyModal.vue
- * - Search a user, pick designation, pick type (Core/Affiliate), optional home department
- * - Emits:
- *    - 'close'   -> when modal should be closed
- *    - 'added'   -> when a member is added successfully (payload: newMember)
+ * HeadFacultyModal.vue (updated to match AddFacultyStaffModal style)
+ * - Side panel with search, user list, designation, type, and home department.
  */
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed } from 'vue'
 import {
   getFirestore, doc, getDoc, updateDoc, arrayUnion,
-} from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import Search from '@/components/Icons/Search.vue';
+} from 'firebase/firestore'
+import UserSearchInput from '@/components/Admin/UserSearchInput.vue'
+import { useUserSearchAndFilter } from '@/composables/useUserSearchAndFilter'
+import { ChevronDown, X } from 'lucide-vue-next'
 
 const props = defineProps({
   show: { type: Boolean, required: true },
@@ -142,123 +215,127 @@ const props = defineProps({
       'Part-time Instructor',
     ],
   },
-});
-const emit = defineEmits(['close', 'added']);
+})
 
-const db = getFirestore();
-const auth = getAuth();
+const emit = defineEmits(['close', 'added'])
 
-const localDesignations = computed(() => props.designations);
+const db = getFirestore()
 
-// --- UI/state ---
-const searchQuery = ref('');
-const dropdownVisible = ref(false);
+/* Search (shared composable like AddFacultyStaffModal) */
+const usersSource = computed(() => props.users || [])
+const { searchQuery, filteredUsers } = useUserSearchAndFilter(usersSource)
 
-const isDesignationOpen = ref(false);
-const designationMenuRef = ref(null);
+/* Local state */
+const selectedUser = ref(null)
+const facultyType = ref('Core')
+const homeDepartment = ref('')
 
-const selectedUser = ref({});
-const filteredUsers = ref([]);
+const selectedDesignation = ref('')
+const isDesignationOpen = ref(false)
 
-// New: type + home department
-const facultyType = ref('Core');          // 'Core' | 'Affiliate'
-const homeDepartment = ref('');           // only used when Affiliate
+const localDesignations = computed(() => props.designations || [])
 
-watch(() => [props.users, searchQuery.value], filterUsers, { deep: true });
-
-function filterUsers() {
-  const q = (searchQuery.value || '').toLowerCase().trim();
-  filteredUsers.value = (props.users || [])
-    .filter(u => (u?.name || '').toLowerCase().includes(q));
+/* UI helpers */
+const toggleDesignationDropdown = () => {
+  isDesignationOpen.value = !isDesignationOpen.value
 }
 
-function selectUser(user) {
-  selectedUser.value = { ...user };
-  searchQuery.value = user.name;
-  filteredUsers.value = [];
+const selectUser = (user) => {
+  selectedUser.value = user
 }
 
-function selectDesignation(d) {
-  selectedUser.value = { ...selectedUser.value, designation: d };
-  isDesignationOpen.value = false;
+const selectDesignation = (d) => {
+  selectedDesignation.value = d
+  isDesignationOpen.value = false
 }
 
-function hideDropdown() {
-  setTimeout(() => (dropdownVisible.value = false), 150);
+/* Button enabled only when everything is valid */
+const canSave = computed(() => {
+  if (!selectedUser.value || !selectedUser.value.id) return false
+  if (!selectedDesignation.value) return false
+  if (facultyType.value === 'Affiliate' && !homeDepartment.value.trim()) return false
+  return true
+})
+
+const resetState = () => {
+  searchQuery.value = ''
+  selectedUser.value = null
+  selectedDesignation.value = ''
+  facultyType.value = 'Core'
+  homeDepartment.value = ''
+  isDesignationOpen.value = false
 }
 
-// click-outside for the designation dropdown
-function handleGlobalClick(e) {
-  if (!isDesignationOpen.value) return;
-  const el = designationMenuRef.value;
-  if (el && e.target instanceof Node && !el.contains(e.target)) {
-    isDesignationOpen.value = false;
-  }
-}
-onMounted(() => document.addEventListener('click', handleGlobalClick, true));
-onBeforeUnmount(() => document.removeEventListener('click', handleGlobalClick, true));
-
-function emitClose() {
-  // reset local state when closing
-  searchQuery.value = '';
-  selectedUser.value = {};
-  filteredUsers.value = [];
-  isDesignationOpen.value = false;
-  dropdownVisible.value = false;
-  facultyType.value = 'Core';
-  homeDepartment.value = '';
-  emit('close');
+const emitClose = () => {
+  resetState()
+  emit('close')
 }
 
-async function addFacultyOrStaff() {
-  if (!selectedUser.value.id || !props.departmentId) {
-    alert('Select a valid user.');
-    return;
-  }
-  if (!selectedUser.value.designation) {
-    alert('Please select a designation.');
-    return;
-  }
-  if (facultyType.value === 'Affiliate' && !homeDepartment.value.trim()) {
-    alert('Please enter the home department for affiliate members.');
-    return;
-  }
+/* Firestore write (same logic as your original HeadFacultyModal) */
+const addFacultyOrStaff = async () => {
+  if (!canSave.value) return
 
-  const userRef = doc(db, 'users', selectedUser.value.id);
-  const userSnap = await getDoc(userRef);
-  if (!userSnap.exists()) return;
+  const userId = selectedUser.value.id
+  const userRef = doc(db, 'users', userId)
+  const userSnap = await getDoc(userRef)
+  if (!userSnap.exists()) return
 
-  const userData = userSnap.data();
+  const userData = userSnap.data()
 
-  // Build the member object stored in this department
   const newMember = {
-    id: selectedUser.value.id,
+    id: userId,
     name: userData.fullName || 'Unnamed',
-    designation: selectedUser.value.designation,
+    designation: selectedDesignation.value,
     memberType: facultyType.value, // 'Core' or 'Affiliate'
-    homeDepartment: facultyType.value === 'Affiliate' ? homeDepartment.value.trim() : '',
+    homeDepartment: facultyType.value === 'Affiliate'
+      ? homeDepartment.value.trim()
+      : '',
     photo: userData.photo || '/placeholder.png',
     email: userData.email || 'N/A',
     specialization: userData.specialization || 'N/A',
     status: 'active',
-  };
+  }
 
-  const depRef = doc(db, 'departments', props.departmentId);
+  const depRef = doc(db, 'departments', props.departmentId)
 
-  if (selectedUser.value.designation === 'Department Head') {
-    // If you ever allow assigning head here
-    await updateDoc(depRef, { headAdmin: newMember });
-    await updateDoc(userRef, { departmentId: props.departmentId });
+  if (selectedDesignation.value === 'Department Head') {
+    // assign as head admin
+    await updateDoc(depRef, { headAdmin: newMember })
+    await updateDoc(userRef, { departmentId: props.departmentId })
   } else {
-    await updateDoc(depRef, { staff: arrayUnion(newMember) });
+    // add to staff array
+    await updateDoc(depRef, { staff: arrayUnion(newMember) })
     await updateDoc(userRef, {
       departments: arrayUnion(props.departmentId),
       status: 'active',
-    });
+    })
   }
 
-  emit('added', newMember);
-  emitClose();
-  alert('Faculty/Staff added successfully!');
+  emit('added', newMember)
+  emitClose()
+  alert('Faculty/Staff added successfully!')
 }
 </script>
+
+<style scoped>
+/* slide-in animation for the whole panel (same as AddFacultyStaffModal) */
+.faculty-panel-enter-active,
+.faculty-panel-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.faculty-panel-enter-from,
+.faculty-panel-leave-to {
+  opacity: 0;
+}
+
+.faculty-panel-enter-active aside,
+.faculty-panel-leave-active aside {
+  transition: transform 0.25s ease;
+}
+
+.faculty-panel-enter-from aside,
+.faculty-panel-leave-to aside {
+  transform: translateX(100%);
+}
+</style>

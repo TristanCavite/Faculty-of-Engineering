@@ -1,6 +1,13 @@
 <template>
   <main class="p-8">
-    <h1 class="mb-6 text-2xl font-bold text-maroon">Department Faculty and Staff</h1>
+    <div class="flex flex-col">
+      <span class="text-4xl font-bold text-red-900 font-montserrat">
+        Department Faculty & Staff Management
+      </span>
+      <span class="text-xs font-montserrat">
+        Manage faculty and staff members within the department
+      </span>
+    </div>
 
     <!-- Add Faculty/Staff Button -->
      <div class="flex justify-end">
@@ -89,7 +96,7 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import ProfilePreviewModal from "@/components/ProfilePreviewModal.vue";
-import HeadFacultyModal from "@/components/HeadFacultyModal.vue";
+import HeadFacultyModal from "@/components/Admin/HeadFacultyModal.vue";
 import { UserPlus } from "lucide-vue-next";
 
 definePageMeta({

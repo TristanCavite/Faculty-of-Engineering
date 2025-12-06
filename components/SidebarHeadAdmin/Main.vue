@@ -50,7 +50,10 @@
                 @click="manageOpen = !manageOpen"
               >
                 <span>Manage</span>
-                <span class="text-xs">{{ manageOpen ? '▲' : '▼' }}</span>
+                <ChevronRight
+                  class="w-4 h-4 text-white transform transition-transform duration-200"
+                  :class="{ 'rotate-90': manageOpen }"
+                />
               </button>
 
               <transition name="fade">
@@ -165,6 +168,7 @@ import { useFirebaseAuth, useCurrentUser, useFirestore, useDocument } from 'vuef
 import { signOut } from 'firebase/auth'
 import { doc } from 'firebase/firestore'
 import { useRouter } from 'vue-router'
+import { ChevronRight } from 'lucide-vue-next'
 
 const auth = useFirebaseAuth()
 const router = useRouter()

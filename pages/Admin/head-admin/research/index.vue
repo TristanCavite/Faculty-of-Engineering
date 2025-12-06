@@ -2,7 +2,7 @@
   <div class="mx-auto max-w-7xl space-y-6 p-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Researches</h1>
+      <span class="font-montserrat text-4xl font-bold text-red-900"> Manage Researches</span>
       <UiButton
         class="bg-maroon text-white hover:opacity-90"
         @click="$router.push('/admin/head-admin/research/add_research')"

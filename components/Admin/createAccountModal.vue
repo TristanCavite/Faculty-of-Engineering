@@ -34,7 +34,6 @@
         </div>
 
         <!-- Title (acts as role selector for this modal) -->
-        <!-- Added "Media Admin" here; department is still only required for Head Admin -->
         <div>
           <label for="title" class="block text-sm font-medium">Title / Role</label>
           <select
@@ -45,7 +44,6 @@
           >
             <option value="Faculty Member">Faculty Member</option>
             <option value="Chair/Head of Department">Chair/Head of Department</option>
-            <option value="Media Admin">Media Admin</option>
           </select>
           <p v-if="errors.title" class="mt-1 text-xs text-red-600">{{ errors.title }}</p>
         </div>
@@ -146,7 +144,7 @@ const form = ref({
   fullName: '',
   email: '',
   // We keep the same key "title" to minimize changes elsewhere in your app.
-  // Options: "Faculty Member" | "Chair/Head of Department" | "Media Admin"
+  // Options: "Faculty Member" | "Chair/Head of Department"
   title: 'Faculty Member',
   departmentId: '',
   password: '',
@@ -193,15 +191,16 @@ async function getSecondaryAuth() {
   return {
     auth,
     async cleanup() {
-      try { await deleteApp(secondary) } catch {}
-    }
+      try {
+        await deleteApp(secondary)
+      } catch {}
+    },
   }
 }
 
 // Map UI "title" to canonical role key used across your app
-function mapTitleToRole(title: string): 'faculty' | 'head_admin' | 'media_admin' {
+function mapTitleToRole(title: string): 'faculty' | 'head_admin' {
   if (title === 'Chair/Head of Department') return 'head_admin'
-  if (title === 'Media Admin') return 'media_admin'
   return 'faculty'
 }
 
@@ -234,7 +233,7 @@ async function onSubmit() {
       uid: cred.user.uid,
       fullName: form.value.fullName.trim(),
       email: form.value.email.trim(),
-      role,                                  // 'faculty' | 'head_admin' | 'media_admin'
+      role, // 'faculty' | 'head_admin'
       departmentId: isHeadDepartment.value ? form.value.departmentId : null,
       status: 'active',
       photo: form.value.photo || '',
@@ -256,8 +255,6 @@ async function onSubmit() {
         updatedAt: serverTimestamp(),
       })
     }
-
-    // Media Admin requires no department stamping; permissions are enforced app-side by role checks
 
     await cleanup()
     emit('close')

@@ -1,9 +1,12 @@
 <template>
   <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage OBE Page</h1>
-    </div>
+    <div class="flex flex-col">
+        <span class="font-montserrat text-4xl font-bold text-red-900"> Manage OBE</span>
+        <span class="font-montserrat text-xs">
+          Manage OBE page content
+        </span>
+      </div>
 
     <!-- Shared media + content form (includes notice banner inside) -->
     <AdminSectionMediaContent
