@@ -141,7 +141,6 @@ const demoRows = ref<Row[]>([
   { label: 'Super Admin', value: 1, color: '#0f172a' },
   { label: 'Head Admin', value: 2, color: '#0d9488' },
   { label: 'Faculty', value: 4, color: '#0284c7' },
-  { label: 'Media Admin', value: 1, color: '#7c3aed' },
 ])
 
 /* ---------- geometry ---------- */

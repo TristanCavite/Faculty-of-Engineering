@@ -11,6 +11,7 @@ import {
   limit,
   getDocs,
   type Firestore,
+  type Timestamp,
 } from 'firebase/firestore'
 
 import {
@@ -26,7 +27,7 @@ export function useSuperDashboard() {
   const router = useRouter()
   const db: Firestore = useFirestore()
 
-  // ---------- Routes ----------
+  /* -------------------- Routes -------------------- */
   const ROUTE_CANDIDATES = {
     accounts:    ['/admin/super-admin/manage_accounts'],
     departments: ['/admin/super-admin/manage_department', '/admin/super-admin/departments'],
@@ -55,10 +56,10 @@ export function useSuperDashboard() {
   }
   const linkTo = (base: string, id: string) => `${base.replace(/\/+$/,'')}/${id}`
 
-  // ---------- Stats ----------
+  /* -------------------- Stats -------------------- */
   const loading = ref(true)
   const lastUpdated = ref<string | null>(null)
-  const stats = ref({ accounts: 0, departments: 0, news: 0, events: 0, downloads: 0 })
+  const stats = ref({ accounts: 0, departments: 0, news: 0, events: 0, downloads: 0, research: 0 })
 
   const countAll = async (path: string) => {
     try { return (await getCountFromServer(collection(db, path))).data().count } catch { return 0 }
@@ -70,12 +71,11 @@ export function useSuperDashboard() {
     } catch { return 0 }
   }
 
-  // ---------- Roles (robust counting) ----------
+  /* -------------------- Roles -------------------- */
   const ROLE_VARIANTS: Record<string, string[]> = {
     'Super Admin': ['Super Admin', 'super_admin', 'super admin', 'super-admin'],
     'Head Admin' : ['Head Admin',  'head_admin',  'head admin',  'head-admin'],
     'Faculty'    : ['Faculty', 'faculty'],
-    'Media Admin': ['Media Admin', 'media_admin', 'media admin', 'media-admin'],
   }
 
   async function countByRoleFlexible(roleKey: keyof typeof ROLE_VARIANTS): Promise<number> {
@@ -92,7 +92,6 @@ export function useSuperDashboard() {
         return (await getCountFromServer(qRef)).data().count
       }
     } catch {
-      // fallback: sum separate equality queries
       try {
         const parts = await Promise.all(
           variants.map(async v =>
@@ -100,38 +99,32 @@ export function useSuperDashboard() {
           )
         )
         return parts.reduce((a, b) => a + b, 0)
-      } catch {
-        return 0
-      }
+      } catch { return 0 }
     }
   }
 
-  const roles = ref({ superAdmin: 0, headAdmin: 0, faculty: 0, mediaAdmin: 0 })
+  const roles = ref({ superAdmin: 0, headAdmin: 0, faculty: 0 })
 
-  // existing bar adapter (kept for your RolesBar list)
   const rolesBar = computed(() => {
-    const values = [roles.value.superAdmin, roles.value.headAdmin, roles.value.faculty, roles.value.mediaAdmin]
+    const values = [roles.value.superAdmin, roles.value.headAdmin, roles.value.faculty]
     const max = Math.max(1, ...values)
     return [
       { label: 'Super Admin', value: roles.value.superAdmin, percent: Math.round((roles.value.superAdmin / max) * 100), color: 'bg-gray-900' },
       { label: 'Head Admin',  value: roles.value.headAdmin,  percent: Math.round((roles.value.headAdmin  / max) * 100), color: 'bg-teal-600' },
       { label: 'Faculty',     value: roles.value.faculty,    percent: Math.round((roles.value.faculty    / max) * 100), color: 'bg-sky-600' },
-      { label: 'Media Admin', value: roles.value.mediaAdmin, percent: Math.round((roles.value.mediaAdmin / max) * 100), color: 'bg-violet-600' },
     ]
   })
 
-  // 🔵 NEW: Pie/Donut adapter (labels + values + HEX colors for SVG)
   const rolesDonutRows = computed(() => [
-    { label: 'Super Admin', value: roles.value.superAdmin, color: '#111827' }, // gray-900
-    { label: 'Head Admin',  value: roles.value.headAdmin,  color: '#0d9488' }, // teal-600
-    { label: 'Faculty',     value: roles.value.faculty,    color: '#0284c7' }, // sky-600
-    { label: 'Media Admin', value: roles.value.mediaAdmin, color: '#7c3aed' }, // violet-600
+    { label: 'Super Admin', value: roles.value.superAdmin, color: '#111827' },
+    { label: 'Head Admin',  value: roles.value.headAdmin,  color: '#0d9488' },
+    { label: 'Faculty',     value: roles.value.faculty,    color: '#0284c7' },
   ])
 
-  // ---------- Recent (createdAt only) ----------
+  /* -------------------- Recent (PUBLISHED only) -------------------- */
   type FeedItem = {
     key: string
-    type: 'News' | 'Event' | 'Download'
+    type: 'News' | 'Event' | 'Download' | 'Research'
     title?: string
     preview?: string
     when?: Date
@@ -141,40 +134,68 @@ export function useSuperDashboard() {
     bgRing: string
   }
   const recent = ref<FeedItem[]>([])
-  const IconByCollection = { news: Newspaper, events: CalendarFold, downloads: DownloadIcon } as const
+
+  const IconByCollection = {
+    news: Newspaper,
+    events: CalendarFold,
+    downloads: DownloadIcon,
+    researches: FlaskConical, // 👈 plural
+  } as const
+
+  const stripHtml = (s: any) =>
+    typeof s === 'string' ? s.replace(/<[^>]*>/g, '').trim() : ''
+
+  const asDate = (d: any): Date =>
+    (d?.toDate?.() as Date) ||
+    (d instanceof Date ? d : new Date(0))
+
+  type CollKey = 'news' | 'events' | 'downloads' | 'researches'
 
   async function recentFrom(
-    path: 'news' | 'events' | 'downloads',
-    typeLabel: 'News'|'Event'|'Download',
+    path: CollKey,
+    typeLabel: FeedItem['type'],
     baseListPath: string
   ) {
-    const decorate = (d: any, id: string): FeedItem => {
-      const title = d.title || d.name || d.fileName || d.heading || d.subject || `Untitled ${typeLabel}`
-      const raw = d.summary || d.excerpt || d.description || d.content || ''
-      const preview = typeof raw === 'string' ? raw.replace(/<[^>]*>/g, '').slice(0, 120) : ''
-      const createdAt: Date =
-        d?.createdAt?.toDate ? d.createdAt.toDate() :
-        d?.createdAt instanceof Date ? d.createdAt :
-        new Date(0)
+    const decorate = (data: any, id: string): FeedItem => {
+      const title = data.title || data.name || data.fileName || data.heading || `Untitled ${typeLabel}`
+      const raw = data.summary || data.excerpt || data.description || data.content || ''
+      const preview = stripHtml(raw).slice(0, 120)
+      const createdAt = asDate((data.createdAt as Timestamp))
 
       const icon = IconByCollection[path]
       const iconColor = path === 'news' ? 'text-amber-600'
-                      : path === 'events' ? 'text-fuchsia-600'
-                      : 'text-indigo-600'
-      const bgRing    = path === 'news' ? 'ring-amber-400/30 bg-amber-50'
-                      : path === 'events' ? 'ring-fuchsia-400/30 bg-fuchsia-50'
-                      : 'ring-indigo-400/30 bg-indigo-50'
+                        : path === 'events' ? 'text-fuchsia-600'
+                        : path === 'downloads' ? 'text-indigo-600'
+                        : 'text-rose-600'
+      const bgRing = path === 'news' ? 'ring-amber-400/30 bg-amber-50'
+                     : path === 'events' ? 'ring-fuchsia-400/30 bg-fuchsia-50'
+                     : path === 'downloads' ? 'ring-indigo-400/30 bg-indigo-50'
+                     : 'ring-rose-400/30 bg-rose-50'
 
       return { key: `${path}:${id}`, type: typeLabel, title, preview, when: createdAt, manageTo: linkTo(baseListPath, id), icon, iconColor, bgRing }
     }
 
     try {
-      const snap = await getDocs(query(collection(db, path), orderBy('createdAt', 'desc'), limit(4)))
+      const snap = await getDocs(
+        query(
+          collection(db, path),
+          where('published', '==', true),
+          orderBy('createdAt', 'desc'),
+          limit(4)
+        )
+      )
       return snap.docs.map(doc => decorate(doc.data(), doc.id))
-    } catch { return [] }
+    } catch {
+      const snap = await getDocs(query(collection(db, path), where('published', '==', true)))
+      return snap.docs
+        .map(d => ({ id: d.id, data: d.data() }))
+        .sort((a, b) => asDate(b.data.createdAt).getTime() - asDate(a.data.createdAt).getTime())
+        .slice(0, 4)
+        .map(({ id, data }) => decorate(data, id))
+    }
   }
 
-  // ---------- Quick actions ----------
+  /* -------------------- Quick actions -------------------- */
   const quickActions = computed(() => [
     { to: routes.accounts,    label: 'Accounts',    icon: User,         color: 'text-sky-600',     ring: 'ring-sky-400/30 bg-sky-50' },
     { to: routes.departments, label: 'Departments', icon: Building2,    color: 'text-emerald-600', ring: 'ring-emerald-400/30 bg-emerald-50' },
@@ -184,34 +205,34 @@ export function useSuperDashboard() {
     { to: routes.research,    label: 'Research',    icon: FlaskConical, color: 'text-rose-600',    ring: 'ring-rose-400/30 bg-rose-50' },
   ])
 
-  // ---------- Fetch all ----------
+  /* -------------------- Fetch all -------------------- */
   async function fetchAll() {
     loading.value = true
     try {
-      const [accounts, departments, news, events, downloads] = await Promise.all([
+      const [accounts, departments, news, events, downloads, research] = await Promise.all([
         countAll('users'),
         countAll('departments'),
-        countPublished('news', 'published'),
-        countAll('events'),
-        countAll('downloads'),
+        countPublished('news'),
+        countPublished('events'),
+        countPublished('downloads'),
+        countPublished('researches'),            // 👈 plural
       ])
-      stats.value = { accounts, departments, news, events, downloads }
+      stats.value = { accounts, departments, news, events, downloads, research }
 
-      // robust role counts (includes Media Admin)
-      const [sa, ha, fa, ma] = await Promise.all([
+      const [sa, ha, fa] = await Promise.all([
         countByRoleFlexible('Super Admin'),
         countByRoleFlexible('Head Admin'),
         countByRoleFlexible('Faculty'),
-        countByRoleFlexible('Media Admin'),
       ])
-      roles.value = { superAdmin: sa, headAdmin: ha, faculty: fa, mediaAdmin: ma }
+      roles.value = { superAdmin: sa, headAdmin: ha, faculty: fa }
 
-      const [rNews, rEvents, rDownloads] = await Promise.all([
+      const [rNews, rEvents, rDownloads, rResearch] = await Promise.all([
         recentFrom('news', 'News', routes.news),
         recentFrom('events', 'Event', routes.events),
         recentFrom('downloads', 'Download', routes.downloads),
+        recentFrom('researches', 'Research', routes.research), 
       ])
-      recent.value = [...rNews, ...rEvents, ...rDownloads]
+      recent.value = [...rNews, ...rEvents, ...rDownloads, ...rResearch]
         .sort((a, b) => (a.when && b.when ? b.when.getTime() - a.when.getTime() : 0))
         .slice(0, 8)
 
@@ -222,9 +243,7 @@ export function useSuperDashboard() {
   }
 
   return {
-    // routes / state
     routes, resolveAllRoutes, stats, recent, fetchAll, loading, lastUpdated,
-    // UI datasets
     quickActions, rolesBar, rolesDonutRows,
   }
 }
