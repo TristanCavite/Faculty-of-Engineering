@@ -87,26 +87,17 @@
         </p>
       </div>
 
-      <!-- Cover Images -->
+      <!-- Cover Images (drag & drop component) -->
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700">Cover Images</label>
-        <input type="file" accept="image/*" multiple @change="handleFileChange" />
-
-        <div v-if="previewUrls.length" class="mt-2 flex gap-4 overflow-x-auto">
-          <div v-for="(src, i) in previewUrls" :key="i" class="relative">
-            <img :src="src" class="h-40 rounded border object-cover" />
-            <button
-              type="button"
-              class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-red-600 shadow hover:bg-white"
-              aria-label="Remove image"
-              @click="removeImageAt(i)"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+        <label class="mb-1 block text-sm font-medium text-gray-700">
+          Cover Images
+        </label>
+        <CoverImageUploader
+          v-model:existing="form.coverImages"
+          v-model:newFiles="imageFiles"
+          hint="You can upload multiple images; the first one will be used as the main cover."
+        />
       </div>
-
       <!-- Tiptap Editor -->
       <div @click.capture="suppressButtonSubmit">
         <label class="mb-1 block text-sm font-medium text-gray-700">Content</label>
@@ -130,6 +121,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFirestore, useStorage } from 'vuefire'
+import CoverImageUploader from '@/components/Admin/CoverImageUploader.vue'
 
 definePageMeta({
   middleware: ['auth'],
