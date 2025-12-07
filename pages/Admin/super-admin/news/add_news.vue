@@ -34,24 +34,10 @@
         />
       </div>
 
-      <!-- Cover Image -->
+      <!-- Cover Image (single-image upload component) -->
       <div class="md:col-span-2">
         <label class="mb-1 block font-semibold">Cover Image</label>
-        <input
-          type="file"
-          class="file-input file-input-bordered w-full"
-          accept="image/*"
-          @change="handleCoverImage"
-        />
-        <div
-          v-if="form.imageUrl"
-          class="mt-2 flex justify-center overflow-hidden rounded border bg-gray-100"
-        >
-          <img
-            :src="form.imageUrl"
-            class="max-h-96 w-auto object-contain p-2"
-          />
-        </div>
+        <UiSingleImageUpload :image-url="form.imageUrl" @change="handleCoverImage" />
       </div>
 
       <!-- Description -->
@@ -83,6 +69,7 @@ import AddContentLayout from '@/components/Admin/AddContentLayout.vue'
 import UiTiptapEditor from '@/components/UiTiptapEditor.vue'
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import UiSingleImageUpload from '@/components/Admin/UiSingleImageUpload.vue'
 import { useFirestore, useFirebaseStorage } from 'vuefire'
 import {
   addDoc,
