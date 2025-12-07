@@ -1,9 +1,9 @@
 <template>
-  <main class="relative">
-    <div class="mx-auto max-w-5xl space-y-3 px-5 pt-3 pb-4">
+  <main class="relative mb-4">
+    <div class="max-w-5xl px-3 pt-3 pb-4 mx-auto space-y-3 border rounded md:px-5 bg-neutral-50">
       <!-- Back -->
       <UiButton
-        class="font-montserrat flex flex-row rounded bg-gray-200 text-sm font-semibold text-gray-800 transition hover:scale-105 hover:bg-gray-300"
+        class="flex flex-row text-xs font-semibold text-gray-800 transition bg-gray-200 rounded md:text-sm font-montserrat hover:scale-105 hover:bg-gray-300"
         @click="goBack"
       >
         <svg
@@ -14,7 +14,7 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="lucide lucide-move-left-icon lucide-move-left size-5"
+          class="lucide lucide-move-left-icon lucide-move-left md:size-5 size-3"
         >
           <path d="M6 8L2 12L6 16" />
           <path d="M2 12H22" />
@@ -27,7 +27,14 @@
         v-if="heroImage"
         :src="heroImage"
         alt="Event cover image"
-        class="max-h-[400px] w-full rounded object-cover"
+        class="max-h-[400px] w-full rounded object-cover cursor-pointer"
+        @click="openPhotoModal(heroImage, event?.title || '')"
+      />
+      <PhotoModal
+        v-model="showPhotoModal"
+        :src="photoModalSrc"
+        :alt="photoModalAlt"
+        @close="showPhotoModal = false"
       />
 
       <!-- Title -->
@@ -156,4 +163,21 @@ function formatDate(ts?: Timestamp | { seconds: number } | Date | string | null)
     weekday: 'long',
   })
 }
+
+//Photo Modal
+const showPhotoModal = ref(false)
+const photoModalSrc = ref("")
+const photoModalAlt = ref("")
+
+function openPhotoModal(src: string, alt?: string) {
+  photoModalSrc.value = src
+  photoModalAlt.value = alt || ""
+  showPhotoModal.value = true
+}
 </script>
+
+<style scoped>
+/* *{
+  outline:1px solid red;
+} */
+</style>

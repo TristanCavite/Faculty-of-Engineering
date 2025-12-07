@@ -33,9 +33,9 @@
           <p v-if="errors.email" class="mt-1 text-xs text-red-600">{{ errors.email }}</p>
         </div>
 
-        <!-- Title -->
+        <!-- Title (acts as role selector for this modal) -->
         <div>
-          <label for="title" class="block text-sm font-medium">Title</label>
+          <label for="title" class="block text-sm font-medium">Title / Role</label>
           <select
             id="title"
             v-model="form.title"
@@ -106,7 +106,6 @@
             Cancel
           </UiButton>
 
-          <!-- NOTE: no @click here; submit is handled by the form -->
           <UiButton
             type="submit"
             class="w-1/2 rounded bg-red-900 px-4 py-2 text-white hover:bg-red-800 disabled:opacity-50"
@@ -129,20 +128,23 @@ import { getApps, initializeApp, deleteApp, type FirebaseApp } from 'firebase/ap
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
-
-// DO NOT use definePageMeta() inside a modal/component (warning you saw)
-
 const db = useFirestore()
 const vuefireApp = useFirebaseApp()
 
+// List of departments for Head Admin assignment
 const departments = ref<{ id: string; name: string }[]>([])
+
+// UI/logic flags
 const isHeadDepartment = ref(false)
 const submitting = ref(false)
 const serverError = ref('')
 
+// Form state
 const form = ref({
   fullName: '',
   email: '',
+  // We keep the same key "title" to minimize changes elsewhere in your app.
+  // Options: "Faculty Member" | "Chair/Head of Department"
   title: 'Faculty Member',
   departmentId: '',
   password: '',
@@ -150,18 +152,21 @@ const form = ref({
   photo: '',
 })
 
+// Field-level errors
 const errors = ref<Record<string, string>>({})
 
-// Load departments
+// Load departments once
 onMounted(async () => {
   const snap = await getDocs(collection(db, 'departments'))
   departments.value = snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name }))
 })
 
+// Toggle department UI only for Head Admin
 function handleTitleChange() {
   isHeadDepartment.value = form.value.title === 'Chair/Head of Department'
 }
 
+// Basic client-side validation
 function validate(): boolean {
   errors.value = {}
   if (!form.value.fullName.trim()) errors.value.fullName = 'Full name is required.'
@@ -186,9 +191,17 @@ async function getSecondaryAuth() {
   return {
     auth,
     async cleanup() {
-      try { await deleteApp(secondary) } catch {}
-    }
+      try {
+        await deleteApp(secondary)
+      } catch {}
+    },
   }
+}
+
+// Map UI "title" to canonical role key used across your app
+function mapTitleToRole(title: string): 'faculty' | 'head_admin' {
+  if (title === 'Chair/Head of Department') return 'head_admin'
+  return 'faculty'
 }
 
 async function onSubmit() {
@@ -198,7 +211,7 @@ async function onSubmit() {
 
   submitting.value = true
   try {
-    // Ensure department has no existing head
+    // If creating a Head Admin, make sure the selected department has no existing head
     if (isHeadDepartment.value && form.value.departmentId) {
       const depRef = doc(db, 'departments', form.value.departmentId)
       const depSnap = await getDoc(depRef)
@@ -212,13 +225,15 @@ async function onSubmit() {
     const { auth, cleanup } = await getSecondaryAuth()
     const cred = await createUserWithEmailAndPassword(auth, form.value.email, form.value.password)
 
-    // Create Firestore user document (store canonical role keys to match your filters)
-    const role = isHeadDepartment.value ? 'head_admin' : 'faculty'
+    // Derive role from the Title / Role select
+    const role = mapTitleToRole(form.value.title)
+
+    // Write to Firestore users collection
     await addDoc(collection(db, 'users'), {
       uid: cred.user.uid,
       fullName: form.value.fullName.trim(),
       email: form.value.email.trim(),
-      role,
+      role, // 'faculty' | 'head_admin'
       departmentId: isHeadDepartment.value ? form.value.departmentId : null,
       status: 'active',
       photo: form.value.photo || '',
@@ -226,8 +241,8 @@ async function onSubmit() {
       updatedAt: serverTimestamp(),
     })
 
-    // If head admin, stamp department doc
-    if (isHeadDepartment.value && form.value.departmentId) {
+    // If Head Admin, stamp department document with headAdmin info
+    if (role === 'head_admin' && form.value.departmentId) {
       await updateDoc(doc(db, 'departments', form.value.departmentId), {
         headAdmin: {
           id: cred.user.uid,
@@ -242,10 +257,7 @@ async function onSubmit() {
     }
 
     await cleanup()
-
-    // Close only AFTER all async work finished to keep the form connected
     emit('close')
-
   } catch (e: any) {
     serverError.value = e?.message || 'Failed to create account.'
   } finally {

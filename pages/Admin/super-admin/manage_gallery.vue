@@ -1,224 +1,381 @@
 <template>
-  <div class="mx-auto max-w-7xl space-y-6 p-6">
+  <div class="mx-auto max-w-6xl space-y-6 p-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Manage Gallery</h1>
-
-      <div class="flex items-center gap-2">
-        <UiButton
-          class="border border-maroon bg-white text-maroon hover:bg-maroon hover:!text-white hover:[&_*]:!text-white"
-          :disabled="busy"
-          @click="pickFiles"
-        >
-          + Add images
-        </UiButton>
-
-        <input
-          ref="fileInput"
-          type="file"
-          accept="image/*"
-          multiple
-          class="hidden"
-          @change="handleAdd"
-        />
+    <div class="flex flex-col">
+        <span class="font-montserrat text-4xl font-bold text-red-900"> Manage Gallery</span>
+        <span class="font-montserrat text-xs">
+          Manage Gallery Images for Various Pages
+        </span>
       </div>
-    </div>
 
-    <!-- Subnote -->
+    <!-- Tip -->
     <p class="text-sm text-gray-500">
-      Tip: Use wide images (e.g., 1920×800). Only what you upload here will appear on the homepage
-      carousel.
+      Tip: Use wide images (e.g., <span class="font-semibold">1920×800</span>). Images here
+      are used for the homepage carousel and as cover images for selected pages.
     </p>
 
-    <!-- Grid -->
-    <div v-if="items.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div
-        v-for="it in items"
-        :key="it.id"
-        class="relative overflow-hidden rounded-lg border bg-white"
+    <!-- Select page -->
+    <div class="space-y-2">
+      <label class="mb-1 block text-sm font-semibold">Select page</label>
+      <select
+        v-model="selectedPage"
+        class="select select-bordered w-full max-w-md"
       >
-        <img
-          :src="it.imageUrl"
-          class="h-56 w-full object-cover"
-          alt="Gallery item"
-          loading="lazy"
-        />
-        <!-- Delete Icon -->
-        <!-- Delete Icon (white chip, subtle hover) -->
-        <button
-          class="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-maroon shadow-md ring-1 ring-maroon/30 backdrop-blur transition hover:scale-105 hover:text-red-600 hover:shadow-lg hover:ring-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
-          :class="{ 'cursor-not-allowed opacity-50': busyIds.has(it.id) }"
-          :disabled="busyIds.has(it.id)"
-          @click="confirmDelete(it)"
-          aria-label="Delete image"
-          title="Delete"
-        >
-          <X class="h-4 w-4" />
-        </button>
-      </div>
+        <option value="main">Main Page Carousel</option>
+        <option value="office">Office &amp; Administration</option>
+        <option value="research">Research</option>
+        <option value="news">News</option>
+        <option value="downloads">College Downloads</option>
+      </select>
     </div>
 
-    <div v-else class="rounded border bg-white p-10 text-center text-gray-500">
-      No images yet. Click “+ Add images” to upload.
-    </div>
+    <!-- MAIN PAGE CAROUSEL (multiple images) -->
+    <section
+      v-if="selectedPage === 'main'"
+      class="space-y-3"
+    >
+      <h2 class="text-lg font-semibold">Main Page Carousel</h2>
 
-    <!-- Delete modal -->
-    <UiModal v-if="showDelete" @close="showDelete = false">
-      <template #header>Delete image</template>
-      <template #default>
-        Are you sure you want to delete this image? This can’t be undone.
-      </template>
-      <template #footer>
-        <UiButton class="bg-gray-200" @click="showDelete = false">Cancel</UiButton>
-        <UiButton class="bg-red-600 text-white" :disabled="busy" @click="doDelete">Delete</UiButton>
-      </template>
-    </UiModal>
+      <CoverImageUploader
+        v-model:existing="mainExistingUrls"
+        v-model:newFiles="mainNewFiles"
+        hint="Recommended size: 1920×800 (landscape). New images are added to the homepage carousel."
+      />
+    </section>
+
+    <!-- OFFICE & ADMINISTRATION COVER -->
+    <section
+      v-else-if="selectedPage === 'office'"
+      class="space-y-3"
+    >
+      <h2 class="text-lg font-semibold">Office &amp; Administration Cover</h2>
+      <UiSingleImageUpload
+        :image-url="covers.office?.imageUrl || ''"
+        @change="handleSingleCoverChange('office', $event)"
+      />
+      <p class="text-xs text-gray-500">
+        Recommended size: 1920×800 (landscape).
+      </p>
+    </section>
+
+    <!-- RESEARCH COVER -->
+    <section
+      v-else-if="selectedPage === 'research'"
+      class="space-y-3"
+    >
+      <h2 class="text-lg font-semibold">Research Cover</h2>
+      <UiSingleImageUpload
+        :image-url="covers.research?.imageUrl || ''"
+        @change="handleSingleCoverChange('research', $event)"
+      />
+      <p class="text-xs text-gray-500">
+        Recommended size: 1920×800 (landscape).
+      </p>
+    </section>
+
+    <!-- NEWS COVER -->
+    <section
+      v-else-if="selectedPage === 'news'"
+      class="space-y-3"
+    >
+      <h2 class="text-lg font-semibold">News Cover</h2>
+      <UiSingleImageUpload
+        :image-url="covers.news?.imageUrl || ''"
+        @change="handleSingleCoverChange('news', $event)"
+      />
+      <p class="text-xs text-gray-500">
+        Recommended size: 1920×800 (landscape).
+      </p>
+    </section>
+
+    <!-- COLLEGE DOWNLOADS COVER -->
+    <section
+      v-else-if="selectedPage === 'downloads'"
+      class="space-y-3"
+    >
+      <h2 class="text-lg font-semibold">College Downloads Cover</h2>
+      <UiSingleImageUpload
+        :image-url="covers.downloads?.imageUrl || ''"
+        @change="handleSingleCoverChange('downloads', $event)"
+      />
+      <p class="text-xs text-gray-500">
+        Recommended size: 1920×800 (landscape).
+      </p>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-  import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-  } from "firebase/firestore";
-  import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-  import { X } from "lucide-vue-next";
-  import { onMounted, ref } from "vue";
-  import { useFirebaseStorage, useFirestore } from "vuefire";
-  import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
+import { ref, onMounted, watch } from 'vue'
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore'
+import {
+  deleteObject,
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from 'firebase/storage'
+import { useFirestore, useFirebaseStorage } from 'vuefire'
 
-  definePageMeta({ layout: "super-admin", middleware: "auth" });
+import CoverImageUploader from '@/components/Admin/CoverImageUploader.vue'
+import UiSingleImageUpload from '@/components/Admin/UiSingleImageUpload.vue'
 
-  type Item = {
-    id: string;
-    imageUrl: string;
-    storagePath: string; // keep the exact storage path for easy deletes
-    createdAt?: any;
-  };
+definePageMeta({
+  middleware: ['auth'],
+  roles: ['super_admin'],
+  layout: 'super-admin',
+})
 
-  const db = useFirestore();
-  const storage = useFirebaseStorage();
+const db = useFirestore()
+const storage = useFirebaseStorage()
 
-  const items = ref<Item[]>([]);
-  const fileInput = ref<HTMLInputElement | null>(null);
-  const busy = ref(false);
-  const busyIds = ref<Set<string>>(new Set());
+type PageKey = 'main' | 'office' | 'research' | 'news' | 'downloads'
+type SinglePageKey = Exclude<PageKey, 'main'>
 
-  const showDelete = ref(false);
-  const toDelete = ref<Item | null>(null);
+/** Which page is selected in the dropdown */
+const selectedPage = ref<PageKey>('main')
 
-  onMounted(load);
+/** Global busy flag (any upload / delete) */
+const busy = ref(false)
 
-  async function load() {
-    const q = query(collection(db, "homepage_gallery"), orderBy("createdAt", "desc"));
-    const snap = await getDocs(q);
-    items.value = snap.docs.map((d: QueryDocumentSnapshot<DocumentData>) => {
-      const data = d.data() as any;
-      return {
-        id: d.id,
-        imageUrl: data.imageUrl || "",
-        storagePath: data.storagePath || `homepage_gallery/${d.id}.jpg`,
-        createdAt: data.createdAt,
-      };
-    });
-  }
+/* ------------------------------------------------------------------ */
+/* Main page carousel (multi-image)                                   */
+/* ------------------------------------------------------------------ */
 
-  function pickFiles() {
-    fileInput.value?.click();
-  }
+type MainImage = {
+  id: string
+  imageUrl: string
+  storagePath: string
+}
 
-  async function handleAdd(e: Event) {
-    const files = (e.target as HTMLInputElement)?.files;
-    if (!files || !files.length) return;
+const mainImages = ref<MainImage[]>([])
+const mainExistingUrls = ref<string[]>([])
+const mainNewFiles = ref<File[]>([])
 
-    busy.value = true;
-    try {
-      for (const file of Array.from(files)) {
-        // 1) create doc to get an id
-        const refDoc = await addDoc(collection(db, "homepage_gallery"), {
-          imageUrl: "",
-          storagePath: "",
-          createdAt: serverTimestamp(),
-        });
+/** Load homepage_gallery images on mount */
+async function loadMainCarousel() {
+  const q = query(collection(db, 'homepage_gallery'), orderBy('createdAt', 'desc'))
+  const snap = await getDocs(q)
 
-        // 2) upload to a deterministic path using the new id
-        const path = `homepage_gallery/${refDoc.id}-${file.name}`;
-        const sref = storageRef(storage, path);
-        const up = await uploadBytes(sref, file);
-        const url = await getDownloadURL(up.ref);
+  const list: MainImage[] = []
+  snap.forEach(d => {
+    const data = d.data() as any
+    list.push({
+      id: d.id,
+      imageUrl: data.imageUrl || '',
+      storagePath: data.storagePath || `homepage_gallery/${d.id}.jpg`,
+    })
+  })
 
-        // 3) update doc with url + path
-        await addDocOrUpdate(refDoc.id, { imageUrl: url, storagePath: path });
+  mainImages.value = list
+  mainExistingUrls.value = list.map(i => i.imageUrl)
+}
 
-        // 4) update UI
-        items.value.unshift({
-          id: refDoc.id,
-          imageUrl: url,
-          storagePath: path,
-        });
-      }
-    } catch (err) {
-      console.error("Add images failed:", err);
-      alert("Failed to upload one or more images.");
-    } finally {
-      busy.value = false;
-      if (fileInput.value) fileInput.value.value = "";
+/** Upload new main-carousel files whenever newFiles changes */
+watch(
+  mainNewFiles,
+  files => {
+    if (!files || !files.length) return
+    uploadNewMainFiles(files)
+  },
+  { deep: true },
+)
+
+async function uploadNewMainFiles(files: File[]) {
+  if (!files.length) return
+  busy.value = true
+
+  try {
+    for (const file of files) {
+      // 1) create doc to get id
+      const docRef = await addDoc(collection(db, 'homepage_gallery'), {
+        imageUrl: '',
+        storagePath: '',
+        createdAt: serverTimestamp(),
+      })
+
+      // 2) upload to Storage
+      const path = `homepage_gallery/${docRef.id}-${file.name}`
+      const sref = storageRef(storage, path)
+      const uploadSnap = await uploadBytes(sref, file)
+      const url = await getDownloadURL(uploadSnap.ref)
+
+      // 3) update doc
+      await setDoc(
+        doc(db, 'homepage_gallery', docRef.id),
+        { imageUrl: url, storagePath: path, updatedAt: serverTimestamp() },
+        { merge: true },
+      )
+
+      // 4) update local state ( prepend so newest first )
+      mainImages.value.unshift({
+        id: docRef.id,
+        imageUrl: url,
+        storagePath: path,
+      })
     }
+
+    mainExistingUrls.value = mainImages.value.map(i => i.imageUrl)
+  } catch (err) {
+    console.error('Failed to upload carousel images:', err)
+    alert('Failed to upload one or more images.')
+  } finally {
+    busy.value = false
+    mainNewFiles.value = []
   }
+}
 
-  async function addDocOrUpdate(id: string, data: Partial<Item>) {
-    // tiny helper so we don’t import updateDoc—addDoc already done above
-    const c = collection(db, "homepage_gallery");
-    await (await import("firebase/firestore")).updateDoc(doc(c, id), data as any);
-  }
+/** When user removes an existing image in CoverImageUploader, delete it from Firestore/Storage */
+watch(
+  mainExistingUrls,
+  (newUrls, oldUrls) => {
+    // skip initial set
+    if (!oldUrls || !oldUrls.length) return
 
-  function confirmDelete(it: Item) {
-    toDelete.value = it;
-    showDelete.value = true;
-  }
+    const removed = oldUrls.filter(u => !newUrls.includes(u))
+    if (!removed.length) return
 
-  async function doDelete() {
-    if (!toDelete.value) return;
-    const it = toDelete.value;
-    busy.value = true;
-    busyIds.value.add(it.id);
+    removed.forEach(async url => {
+      const item = mainImages.value.find(i => i.imageUrl === url)
+      if (!item) return
 
-    try {
-      // delete file first (ignore if already gone)
-      if (it.storagePath) {
-        const sref = storageRef(storage, it.storagePath);
-        await deleteObject(sref).catch(() => {});
+      busy.value = true
+      try {
+        if (item.storagePath) {
+          const sref = storageRef(storage, item.storagePath)
+          await deleteObject(sref).catch(() => {})
+        }
+        await deleteDoc(doc(db, 'homepage_gallery', item.id))
+
+        mainImages.value = mainImages.value.filter(i => i.id !== item.id)
+      } catch (err) {
+        console.error('Failed to delete carousel image:', err)
+        alert('Failed to delete image.')
+      } finally {
+        busy.value = false
       }
-      // then delete doc
-      await deleteDoc(doc(db, "homepage_gallery", it.id));
-      // update UI
-      items.value = items.value.filter((x) => x.id !== it.id);
-      showDelete.value = false;
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert("Could not delete image.");
-    } finally {
-      busy.value = false;
-      busyIds.value.delete(it.id);
-      toDelete.value = null;
+    })
+  },
+  { deep: true },
+)
+
+/* ------------------------------------------------------------------ */
+/* Single-page covers (office, research, news, downloads)             */
+/* ------------------------------------------------------------------ */
+
+type SingleCover = {
+  imageUrl: string
+  storagePath: string
+}
+
+const covers = ref<Record<SinglePageKey, SingleCover | null>>({
+  office: null,
+  research: null,
+  news: null,
+  downloads: null,
+})
+
+/** Firestore doc IDs for covers */
+const coverDocIds: Record<SinglePageKey, string> = {
+  office: 'office_admin',
+  research: 'research',
+  news: 'news',
+  downloads: 'downloads',
+}
+
+/** Load all covers on mount */
+async function loadAllCovers() {
+  const keys: SinglePageKey[] = ['office', 'research', 'news', 'downloads']
+
+  await Promise.all(
+    keys.map(async key => {
+      const id = coverDocIds[key]
+      const snap = await getDoc(doc(db, 'page_covers', id))
+
+      if (snap.exists()) {
+        const data = snap.data() as any
+        covers.value[key] = {
+          imageUrl: data.imageUrl || '',
+          storagePath: data.storagePath || '',
+        }
+      } else {
+        covers.value[key] = null
+      }
+    }),
+  )
+}
+
+/** Handle upload for a single-cover page */
+async function handleSingleCoverChange(page: SinglePageKey, event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  busy.value = true
+
+  try {
+    const existing = covers.value[page]
+
+    // delete previous file (if any)
+    if (existing?.storagePath) {
+      await deleteObject(storageRef(storage, existing.storagePath)).catch(() => {})
     }
+
+    const docId = coverDocIds[page]
+    const path = `page_covers/${docId}/${Date.now()}-${file.name}`
+    const sref = storageRef(storage, path)
+    const uploadSnap = await uploadBytes(sref, file)
+    const url = await getDownloadURL(uploadSnap.ref)
+
+    await setDoc(
+      doc(db, 'page_covers', docId),
+      {
+        imageUrl: url,
+        storagePath: path,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+    covers.value[page] = {
+      imageUrl: url,
+      storagePath: path,
+    }
+  } catch (err) {
+    console.error(`Failed to upload ${page} cover:`, err)
+    alert('Failed to upload image. Please try again.')
+  } finally {
+    busy.value = false
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Init                                                                */
+/* ------------------------------------------------------------------ */
+
+onMounted(async () => {
+  await Promise.all([loadMainCarousel(), loadAllCovers()])
+})
 </script>
 
 <style scoped>
-  .text-maroon {
-    color: #740505;
-  }
-  .bg-maroon {
-    background-color: #740505;
-  }
-  .border-maroon {
-    border-color: #740505;
-  }
+.text-maroon {
+  color: #740505;
+}
+.bg-maroon {
+  background-color: #740505;
+}
+.border-maroon {
+  border-color: #740505;
+}
 </style>

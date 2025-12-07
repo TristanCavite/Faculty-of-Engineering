@@ -1,0 +1,18 @@
+/* reserve gutter so layout won't jump */
+html { scrollbar-gutter: stable; }
+
+/* Only on desktop-like devices: force scrollbar present and hide it visually */
+@media (hover: hover) and (pointer: fine) {
+  html { overflow-y: scroll; }
+
+  /* Firefox */
+  html, body { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* Webkit (Chrome / Safari / Edge) */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+}

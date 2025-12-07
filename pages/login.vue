@@ -1,208 +1,217 @@
 <template>
-  <div
-    class="flex items-center justify-center h-screen bg-center bg-cover"
-    style="background-image: url('bg.png')"
-  >
-    <!-- Wrapper with Border -->
-    <div class="w-full max-w-md p-6 bg-white border border-gray-300 rounded shadow-md">
-      <!-- Centered Logo and Heading -->
-      <div class="flex flex-col items-center my-6 space-y-2">
-        <img src="/logoTab.png" alt="Logo" class="h-14" />
-        <h1 class="text-2xl font-semibold tracking-tight">Log in</h1>
-      </div>
+    <!-- Page background layers -->
+  <div class="relative flex items-center justify-center min-h-screen overflow-hidden">
+    <!-- Blurred photo -->
+    <div
+      class="absolute inset-0 scale-105 bg-center bg-cover -z-20 blur-xl"
+      style="background-image: url('/bg.png')"
+      aria-hidden="true"
+    />
+    <!-- Dark overlay to improve contrast -->
+    <div class="absolute inset-0 -z-10 bg-black/70" aria-hidden="true" />
 
-      <p class="mb-8 text-center text-gray-500">Enter your email & password to log in.</p>
+    <!-- Glassy form box -->
+   <div class="relative mx-4 w-full max-w-[480px] sm:max-w-[520px]">
 
-      <!-- Form -->
-      <form @submit.prevent="submit">
-        <fieldset class="grid gap-4">
-          <!-- EMAIL -->
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-600">Email</label>
-            <input
-              v-model="email"
-              type="email"
-              id="email"
-              autocomplete="email"
-              required
-              class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none focus:ring focus:ring-red-600"
-              placeholder="sample.rani@valid.com"
-            />
-          </div>
+      <div
+        class="rounded-2xl bg-red-900/70 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
+      >
+        <!-- Header -->
+        <div class="flex flex-col items-center px-8 pt-8">
+          <img src="/FE_logo_white_wbg.png" alt="Logo" class="h-14" />
+          <h1 class="mt-3 text-2xl font-semibold tracking-tight text-white">LOGIN</h1>
+          <p class="mt-1 mb-6 text-sm text-center text-white/70">
+            Enter your email & password to log in.
+          </p>
+        </div>
 
-          <!-- PASSWORD -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-600">Password</label>
-            <input
-              v-model="password"
-              type="password"
-              id="password"
-              autocomplete="current-password"
-              required
-              class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none focus:ring focus:ring-red-600"
-              placeholder="******"
-            />
-          </div>
+        <!-- Form -->
+        <form @submit.prevent="submit" class="px-8 pb-8">
+          <fieldset class="grid gap-4">
+            <!-- EMAIL -->
+            <div>
+              <label for="email" class="block text-sm font-medium text-white/80">Email</label>
+              <input
+                v-model="email"
+                type="email"
+                id="email"
+                autocomplete="email"
+                required
+                class="w-full px-3 py-2 mt-1 text-white transition border rounded-lg shadow-sm outline-none border-white/20 bg-white/5 placeholder-white/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
+                placeholder="sample.rani@valid.com"
+              />
+            </div>
 
-          <!-- REMEMBER + FORGOT -->
-          <div class="flex items-center justify-between mt-2">
-            <label class="flex items-center">
-              <!-- Remember me affects Firebase Auth persistence -->
+            <!-- PASSWORD -->
+            <div>
+              <div class="flex items-center justify-between">
+                <label for="password" class="block text-sm font-medium text-white/80">Password</label>
+                <button
+                  type="button"
+                  class="text-sm font-medium underline text-white/90 decoration-white/30 underline-offset-4 hover:decoration-white"
+                  @click="forgotOpen = true"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <input
+                v-model="password"
+                type="password"
+                id="password"
+                autocomplete="current-password"
+                required
+                class="w-full px-3 py-2 mt-1 text-white transition border rounded-lg shadow-sm outline-none border-white/20 bg-white/5 placeholder-white/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
+                placeholder="******"
+              />
+            </div>
+
+            <!-- REMEMBER -->
+            <label class="inline-flex items-center gap-2 mt-1">
               <input
                 v-model="rememberMe"
                 type="checkbox"
-                class="rounded border-gray-300 text-red-600 focus:ring-red-600"
+                class="text-red-600 bg-transparent rounded border-white/30 focus:ring-red-600"
               />
-              <span class="ml-2 text-sm text-gray-600">Remember me</span>
+              <span class="text-sm text-white/80">Remember me</span>
             </label>
 
-            <!-- Opens the Forgot Password modal -->
+            <!-- SUBMIT -->
+            <button
+              type="submit"
+              :disabled="loading"
+              class="mt-2 w-full rounded-lg bg-white py-2.5 font-semibold text-black shadow-lg transition hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span v-if="!loading">Log In</span>
+              <span v-else>Signing in…</span>
+            </button>
+
+            <!-- CANCEL -->
             <button
               type="button"
-              class="text-sm font-medium underline text-red-600"
-              @click="forgotOpen = true"
+              @click="cancel"
+              class="w-full rounded-lg bg-white/10 py-2.5 font-semibold text-white shadow-sm transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/20"
             >
-              Forgot password?
+              Cancel
             </button>
-          </div>
-
-          <!-- SUBMIT -->
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full mt-4 rounded-md bg-red-800 py-2 text-white font-semibold shadow-md transition hover:bg-red-700 disabled:opacity-60 focus:outline-none focus:ring focus:ring-red-600"
-          >
-            <span v-if="!loading">Log In</span>
-            <span v-else>Signing in…</span>
-          </button>
-
-          <!-- CANCEL -->
-          <button
-            type="button"
-            @click="cancel"
-            class="w-full mt-2 rounded-md bg-gray-300 py-2 text-gray-800 font-semibold shadow-md transition hover:bg-gray-400 focus:outline-none focus:ring focus:ring-gray-600"
-          >
-            Cancel
-          </button>
-        </fieldset>
-      </form>
+          </fieldset>
+        </form>
+      </div>
     </div>
   </div>
 
   <ForgotPasswordModal
-  v-model="forgotOpen"
-  :prefill="email"
-  redirect-path="/auth/reset-password"
-  @sent="onResetSent"
-/>
+    v-model="forgotOpen"
+    :prefill="email"
+    redirect-path="/auth/reset-password"
+    @sent="onResetSent"
+  />
 </template>
 
 <script setup>
-/**
- * Nuxt 3 + Firebase Auth + Firestore (JavaScript version)
- * - No TypeScript syntax here (avoids the errors you saw)
- * - No email verification required
- * - Remember me toggles auth persistence (local vs session)
- * - Ensures a user doc exists; routes by role
- */
 
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-// Firebase Auth
 import {
   getAuth,
   signInWithEmailAndPassword,
   setPersistence,
-  browserLocalPersistence,   // persists after browser restart (Remember ON)
-  browserSessionPersistence, // clears on tab close (Remember OFF)
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from 'firebase/auth'
 
-// Firestore
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'
+import {
+  getFirestore,
+  doc, getDoc, setDoc, deleteDoc,
+  collection, query, where, limit, getDocs,
+} from 'firebase/firestore'
 
 definePageMeta({ layout: 'no-navbar-footer' })
 
-// ----------------- STATE -----------------
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(true)
 const loading = ref(false)
-const forgotOpen = ref(false) // controls the modal
+const forgotOpen = ref(false)
 
 const auth = getAuth()
 const db = getFirestore()
 const router = useRouter()
 
-// ----------------- ACTIONS -----------------
+async function loadAndMigrateProfile(uid) {
+  const canonicalRef = doc(db, 'users', uid)
+  const canonicalSnap = await getDoc(canonicalRef)
+  const canonical = canonicalSnap.exists() ? { id: canonicalSnap.id, ...canonicalSnap.data() } : null
+
+  const qs = await getDocs(query(collection(db, 'users'), where('uid', '==', uid), limit(3)))
+  const legacyDoc = qs.docs.find(d => d.id !== uid) || null
+  const legacy = legacyDoc ? { id: legacyDoc.id, ...legacyDoc.data() } : null
+
+  if (!canonical && !legacy) return null
+
+  const richness = (x) => (x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0)
+  const chosen = (richness(legacy) > richness(canonical)) ? legacy : canonical
+
+  await setDoc(canonicalRef, {
+    ...chosen,
+    uid,
+    email: chosen?.email || auth.currentUser?.email || '',
+  }, { merge: true })
+
+  if (legacy && legacy.id !== uid) {
+    try { await deleteDoc(doc(db, 'users', legacy.id)) }
+    catch (e) { console.warn('Legacy user doc delete failed:', e) }
+  }
+
+  const final = await getDoc(canonicalRef)
+  return { id: final.id, ...final.data() }
+}
+
+// Normalize role to snake_case key
+const toRoleKey = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, '_')
+
 const submit = async () => {
   if (!email.value.trim() || !password.value.trim()) return
-
   loading.value = true
   try {
-    // Apply persistence based on Remember me
-    await setPersistence(
-      auth,
-      rememberMe.value ? browserLocalPersistence : browserSessionPersistence
-    )
+    await setPersistence(auth, rememberMe.value ? browserLocalPersistence : browserSessionPersistence)
 
-    // Sign in (no email verification checks)
-    const cred = await signInWithEmailAndPassword(
-      auth,
-      email.value.trim(),
-      password.value.trim()
-    )
-    const user = cred.user
+    const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value.trim())
+    const uid = cred.user.uid
 
-    // Ensure a user document exists
-    const userDocRef = doc(db, 'users', user.uid)
-    let snap = await getDoc(userDocRef)
+    const profile = await loadAndMigrateProfile(uid)
 
-    if (!snap.exists()) {
-      await setDoc(userDocRef, {
-        email: user.email,
-        role: 'Faculty',     // default role
-        departmentId: null,
-        status: 'active',    // default status
-        createdAt: new Date(),
-      })
-      snap = await getDoc(userDocRef) // re-fetch newly created data
+    if (!profile) {
+      alert('Your profile has not been set up yet. Please contact a Super Admin.')
+      return
     }
 
-    const data = snap.data() || {}
-    const role = data.role || 'Faculty'
-    const status = data.status || 'active'
+    const roleKey = toRoleKey(profile.role)
+    const statusKey = toRoleKey(profile.status || 'active')
 
-    // Block inactive accounts except Super Admin
-    if (role !== 'Super Admin' && status !== 'active') {
+    if (roleKey !== 'super_admin' && statusKey !== 'active') {
       alert('Your account is inactive. Please contact the administrator.')
       return
     }
 
-    // Route by role
-    if (role === 'Super Admin') router.push('/admin/super-admin')
-    else if (role === 'Head Admin') router.push('/admin/head-admin')
-    else if (role === 'Faculty') router.push('/admin/faculty')
-    else {
-      console.error('Unknown role:', role)
+    if (roleKey === 'super_admin') {
+      router.push('/admin/super-admin')
+    } else if (roleKey === 'head_admin') {
+      router.push('/admin/head-admin')
+    } else if (roleKey === 'faculty') {
+      router.push('/admin/faculty')
+    } else {
+      console.error('Unknown role:', profile.role)
       alert('User role is not recognized.')
     }
   } catch (err) {
-    // No TS cast; log safely for JS
-    const msg = err && err.message ? err.message : String(err)
-    console.error('Login failed:', msg)
+    console.error('Login failed:', err?.message || err)
     alert('Invalid email or password.')
   } finally {
     loading.value = false
   }
 }
 
-const cancel = () => {
-  router.push('/', { replace: true })
-}
-
-const onResetSent = (targetEmail) => {
-  // Optional: toast/analytics hook
-  // console.log('Password reset email attempted for:', targetEmail)
-}
+const cancel = () => router.push('/', { replace: true })
+const onResetSent = () => {}
 </script>
