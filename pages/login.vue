@@ -1,5 +1,5 @@
 <template>
-    <!-- Page background layers -->
+  <!-- Page background layers -->
   <div class="relative flex items-center justify-center min-h-screen overflow-hidden">
     <!-- Blurred photo -->
     <div
@@ -11,8 +11,7 @@
     <div class="absolute inset-0 -z-10 bg-black/70" aria-hidden="true" />
 
     <!-- Glassy form box -->
-   <div class="relative mx-4 w-full max-w-[480px] sm:max-w-[520px]">
-
+    <div class="relative mx-4 w-full max-w-[480px] sm:max-w-[520px]">
       <div
         class="rounded-2xl bg-red-900/70 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]"
       >
@@ -21,7 +20,7 @@
           <img src="/FE_logo_white_wbg.png" alt="Logo" class="h-14" />
           <h1 class="mt-3 text-2xl font-semibold tracking-tight text-white">LOGIN</h1>
           <p class="mt-1 mb-6 text-sm text-center text-white/70">
-            Enter your email & password to log in.
+            Enter your email &amp; password to log in.
           </p>
         </div>
 
@@ -45,7 +44,9 @@
             <!-- PASSWORD -->
             <div>
               <div class="flex items-center justify-between">
-                <label for="password" class="block text-sm font-medium text-white/80">Password</label>
+                <label for="password" class="block text-sm font-medium text-white/80">
+                  Password
+                </label>
                 <button
                   type="button"
                   class="text-sm font-medium underline text-white/90 decoration-white/30 underline-offset-4 hover:decoration-white"
@@ -99,6 +100,7 @@
     </div>
   </div>
 
+  <!-- Forgot password modal -->
   <ForgotPasswordModal
     v-model="forgotOpen"
     :prefill="email"
@@ -108,7 +110,6 @@
 </template>
 
 <script setup>
-
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -122,61 +123,97 @@ import {
 
 import {
   getFirestore,
-  doc, getDoc, setDoc, deleteDoc,
-  collection, query, where, limit, getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  limit,
+  getDocs,
 } from 'firebase/firestore'
 
 definePageMeta({ layout: 'no-navbar-footer' })
 
+// -----------------------------
+// Reactive state
+// -----------------------------
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(true)
 const loading = ref(false)
 const forgotOpen = ref(false)
 
+// Firebase + router instances
 const auth = getAuth()
 const db = getFirestore()
 const router = useRouter()
 
+// -----------------------------
+// Helpers
+// -----------------------------
 async function loadAndMigrateProfile(uid) {
   const canonicalRef = doc(db, 'users', uid)
   const canonicalSnap = await getDoc(canonicalRef)
   const canonical = canonicalSnap.exists() ? { id: canonicalSnap.id, ...canonicalSnap.data() } : null
 
   const qs = await getDocs(query(collection(db, 'users'), where('uid', '==', uid), limit(3)))
-  const legacyDoc = qs.docs.find(d => d.id !== uid) || null
+  const legacyDoc = qs.docs.find((d) => d.id !== uid) || null
   const legacy = legacyDoc ? { id: legacyDoc.id, ...legacyDoc.data() } : null
 
   if (!canonical && !legacy) return null
 
-  const richness = (x) => (x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0)
-  const chosen = (richness(legacy) > richness(canonical)) ? legacy : canonical
+  const richness = (x) =>
+    x ? (x.role ? 2 : 0) + (x.status ? 1 : 0) + (x.email ? 1 : 0) : 0
+  const chosen = richness(legacy) > richness(canonical) ? legacy : canonical
 
-  await setDoc(canonicalRef, {
-    ...chosen,
-    uid,
-    email: chosen?.email || auth.currentUser?.email || '',
-  }, { merge: true })
+  await setDoc(
+    canonicalRef,
+    {
+      ...chosen,
+      uid,
+      email: chosen?.email || auth.currentUser?.email || '',
+    },
+    { merge: true },
+  )
 
   if (legacy && legacy.id !== uid) {
-    try { await deleteDoc(doc(db, 'users', legacy.id)) }
-    catch (e) { console.warn('Legacy user doc delete failed:', e) }
+    try {
+      await deleteDoc(doc(db, 'users', legacy.id))
+    } catch (e) {
+      console.warn('Legacy user doc delete failed:', e)
+    }
   }
 
   const final = await getDoc(canonicalRef)
   return { id: final.id, ...final.data() }
 }
 
-// Normalize role to snake_case key
-const toRoleKey = (v) => String(v || '').trim().toLowerCase().replace(/\s+/g, '_')
+const toRoleKey = (v) =>
+  String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
 
+// -----------------------------
+// Login submit
+// -----------------------------
 const submit = async () => {
   if (!email.value.trim() || !password.value.trim()) return
+
   loading.value = true
   try {
-    await setPersistence(auth, rememberMe.value ? browserLocalPersistence : browserSessionPersistence)
+    await setPersistence(
+      auth,
+      rememberMe.value ? browserLocalPersistence : browserSessionPersistence,
+    )
 
-    const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value.trim())
+    const cred = await signInWithEmailAndPassword(
+      auth,
+      email.value.trim(),
+      password.value.trim(),
+    )
     const uid = cred.user.uid
 
     const profile = await loadAndMigrateProfile(uid)
@@ -212,6 +249,15 @@ const submit = async () => {
   }
 }
 
+// -----------------------------
+// Other actions
+// -----------------------------
 const cancel = () => router.push('/', { replace: true })
-const onResetSent = () => {}
+
+// Let the modal handle its own success notice (no browser alert here)
+const onResetSent = (_resetEmail) => {
+  // Do nothing so the green successMessage in the modal is visible.
+  // If you ever want auto-close, you can uncomment this:
+  // forgotOpen.value = false
+}
 </script>
