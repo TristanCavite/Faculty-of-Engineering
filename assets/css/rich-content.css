@@ -9,3 +9,12 @@
 .ProseMirror th,
 .ProseMirror td { border: 1px solid #d1d5db; padding: 10px 12px; vertical-align: top; }
 .ProseMirror thead th { background: #f3f4f6; font-weight: 700; text-align: left; }
+
+/* Headings from rich content (news, events, about, admission, etc.) */
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: #7f1d1d; /* CET maroon */
+  font-family: var(--cet-heading-font, inherit);
+}
+
