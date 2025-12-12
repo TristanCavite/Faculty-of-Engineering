@@ -73,7 +73,7 @@ Built with **Nuxt 3**, **Vue 3**, **TypeScript**, **Tailwind CSS**, **VueFire (F
 #### About
 
 - `/about/history`, `/about/faculty`, `/about/facilities`, `/about/map`, etc.  
-- `/about/administration` – college-wide administration and staff  
+- `/about/administration` – faculty-wide administration and staff  
 - `/about/dept_personels/[id]` – per-department personnel with profile preview modal (`ProfilePreviewModal.vue`)  
 
 #### Academics
@@ -401,8 +401,8 @@ Nuxt uses file-based routing. Key routes:
 
 ### Admin
 
-- `/Admin/faculty` → faculty dashboard and subpages  
-- `/Admin/head-admin` → head admin dashboard and subpages  
+- `/Admin/faculty` → faculty profile
+- `/Admin/head-admin` → faculty profile and department/degree program pages
 - `/Admin/super-admin` → super admin dashboard and subpages  
 
 Route access is guarded with middleware for authentication and role-based checks, plus extra checks for module permissions where needed.
